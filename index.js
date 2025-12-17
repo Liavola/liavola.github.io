@@ -7,17 +7,20 @@ class CounterApp {
 
   init() {
     this.bindEvents();
-    this.addCounter(); // Add initial counter
+    this.loadCounters();
     this.loadSettings();
+
+    // Add initial counter if none exist
+    if (this.counters.length === 0) {
+      this.addCounter();
+    }
   }
 
   bindEvents() {
-    // Add counter button
     document.getElementById("addCounterBtn").addEventListener("click", () => {
       this.addCounter();
     });
 
-    // Style controls
     document
       .getElementById("bgColorInput")
       .addEventListener("input", this.updateBackgroundColor.bind(this));
@@ -31,19 +34,20 @@ class CounterApp {
       .getElementById("fontSelect")
       .addEventListener("change", this.updateFontFamily.bind(this));
     document
-      .getElementById("fontSizeSlider")
-      .addEventListener("input", this.updateFontSize.bind(this));
-    document
       .getElementById("resetStylesBtn")
       .addEventListener("click", this.resetStyles.bind(this));
-       // Settings panel toggle
-    document.getElementById("toggleSettingsBtn").addEventListener("click", () => {
+
+    document
+      .getElementById("toggleSettingsBtn")
+      .addEventListener("click", () => {
         this.toggleSettings();
-    });
-    
-    document.getElementById("closeSettingsBtn").addEventListener("click", () => {
+      });
+
+    document
+      .getElementById("closeSettingsBtn")
+      .addEventListener("click", () => {
         this.closeSettings();
-    });
+      });
   }
 
   addCounter() {
@@ -56,6 +60,7 @@ class CounterApp {
     this.counters.push(counter);
     this.renderCounter(counter);
     this.updateTotal();
+    this.saveCounters();
   }
 
   renderCounter(counter) {
@@ -65,18 +70,56 @@ class CounterApp {
     counterDiv.dataset.id = counter.id;
 
     counterDiv.innerHTML = `
-            <div class="counter-header">
-                <div class="counter-title">${counter.name}</div>
-                <button class="delete-counter" onclick="app.deleteCounter(${counter.id})">×</button>
-            </div>
-            <div class="counter-controls">
-                <button class="counter-btn minus" onclick="app.decrementCounter(${counter.id})">−</button>
-                <div class="count-display">${counter.count}</div>
-                <button class="counter-btn plus" onclick="app.incrementCounter(${counter.id})">+</button>
-            </div>
-        `;
+      <div class="counter-header">
+        <div class="counter-title" onclick="app.editCounterName(${counter.id})">${counter.name}</div>
+        <button class="delete-counter" onclick="app.deleteCounter(${counter.id})">×</button>
+      </div>
+      <div class="counter-controls">
+        <button class="counter-btn minus" onclick="app.decrementCounter(${counter.id})">−</button>
+        <div class="count-display">${counter.count}</div>
+        <button class="counter-btn plus" onclick="app.incrementCounter(${counter.id})">+</button>
+      </div>
+    `;
 
     container.appendChild(counterDiv);
+  }
+
+  editCounterName(id) {
+    const counter = this.counters.find((c) => c.id === id);
+    const titleElement = document.querySelector(
+      `[data-id="${id}"] .counter-title`
+    );
+
+    if (counter && titleElement) {
+      const input = document.createElement("input");
+      input.className = "counter-title-input";
+      input.value = counter.name;
+      input.maxLength = 20;
+
+      titleElement.replaceWith(input);
+      input.focus();
+      input.select();
+
+      const saveTitle = () => {
+        const newName = input.value.trim() || counter.name;
+        counter.name = newName;
+
+        const newTitleElement = document.createElement("div");
+        newTitleElement.className = "counter-title";
+        newTitleElement.onclick = () => this.editCounterName(id);
+        newTitleElement.textContent = newName;
+
+        input.replaceWith(newTitleElement);
+        this.saveCounters();
+      };
+
+      input.addEventListener("blur", saveTitle);
+      input.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          saveTitle();
+        }
+      });
+    }
   }
 
   incrementCounter(id) {
@@ -84,7 +127,9 @@ class CounterApp {
     if (counter) {
       counter.count++;
       this.updateCounterDisplay(id, counter.count);
+      this.animateCounter(id);
       this.updateTotal();
+      this.saveCounters();
     }
   }
 
@@ -93,7 +138,9 @@ class CounterApp {
     if (counter && counter.count > 0) {
       counter.count--;
       this.updateCounterDisplay(id, counter.count);
+      this.animateCounter(id);
       this.updateTotal();
+      this.saveCounters();
     }
   }
 
@@ -106,6 +153,7 @@ class CounterApp {
     this.counters = this.counters.filter((c) => c.id !== id);
     document.querySelector(`[data-id="${id}"]`).remove();
     this.updateTotal();
+    this.saveCounters();
   }
 
   updateCounterDisplay(id, count) {
@@ -117,6 +165,18 @@ class CounterApp {
     }
   }
 
+  animateCounter(id) {
+    const counterElement = document.querySelector(
+      `[data-id="${id}"] .count-display`
+    );
+    if (counterElement) {
+      counterElement.classList.add("animate");
+      setTimeout(() => {
+        counterElement.classList.remove("animate");
+      }, 200);
+    }
+  }
+
   updateTotal() {
     const total = this.counters.reduce(
       (sum, counter) => sum + counter.count,
@@ -125,7 +185,6 @@ class CounterApp {
     document.getElementById("totalCount").textContent = total;
   }
 
-  // Style update methods
   updateBackgroundColor() {
     const color = document.getElementById("bgColorInput").value;
     if (this.isValidHexColor(color)) {
@@ -161,37 +220,26 @@ class CounterApp {
     this.saveSettings();
   }
 
-  updateFontSize() {
-    const fontSize = document.getElementById("fontSizeSlider").value;
-    document.getElementById("fontSizeDisplay").textContent = fontSize + "px";
-    document.body.style.fontSize = fontSize + "px";
-    this.saveSettings();
-  }
-
-  
-toggleSettings() {
+  toggleSettings() {
     const panel = document.getElementById("settingsPanel");
     panel.classList.toggle("open");
-}
+  }
 
-closeSettings() {
+  closeSettings() {
     const panel = document.getElementById("settingsPanel");
     panel.classList.remove("open");
-}
+  }
 
   resetStyles() {
     document.body.style.backgroundColor = "";
     document.body.style.color = "";
     document.body.style.backgroundImage = "";
     document.body.style.fontFamily = "";
-    document.body.style.fontSize = "";
 
     document.getElementById("bgColorInput").value = "";
     document.getElementById("textColorInput").value = "";
     document.getElementById("bgImageInput").value = "";
     document.getElementById("fontSelect").value = "'Open Sans', sans-serif";
-    document.getElementById("fontSizeSlider").value = 24;
-    document.getElementById("fontSizeDisplay").textContent = "24px";
 
     localStorage.removeItem("counterAppSettings");
   }
@@ -206,7 +254,6 @@ closeSettings() {
       color: document.body.style.color,
       backgroundImage: document.body.style.backgroundImage,
       fontFamily: document.body.style.fontFamily,
-      fontSize: document.body.style.fontSize,
     };
     localStorage.setItem("counterAppSettings", JSON.stringify(settings));
   }
@@ -235,15 +282,26 @@ closeSettings() {
         document.body.style.fontFamily = settings.fontFamily;
         document.getElementById("fontSelect").value = settings.fontFamily;
       }
-      if (settings.fontSize) {
-        document.body.style.fontSize = settings.fontSize;
-        const size = parseInt(settings.fontSize);
-        document.getElementById("fontSizeSlider").value = size;
-        document.getElementById("fontSizeDisplay").textContent = size + "px";
-      }
+    }
+  }
+
+  saveCounters() {
+    localStorage.setItem("counterAppData", JSON.stringify(this.counters));
+  }
+
+  loadCounters() {
+    const savedCounters = localStorage.getItem("counterAppData");
+    if (savedCounters) {
+      this.counters = JSON.parse(savedCounters);
+      this.nextId = Math.max(...this.counters.map((c) => c.id), 0) + 1;
+
+      this.counters.forEach((counter) => {
+        this.renderCounter(counter);
+      });
+
+      this.updateTotal();
     }
   }
 }
 
-// Initialize the app
 const app = new CounterApp();

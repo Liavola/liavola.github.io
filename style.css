@@ -17,6 +17,27 @@ body {
     flex-direction: column;
 }
 
+/* Logo section */
+.logo-section {
+    display: flex;
+    align-items: center;
+}
+
+.logo {
+    font-size: 20px;
+    font-weight: bold;
+    color: #42479e;
+    padding: 10px 15px;
+    border-radius: 8px;
+    background: rgba(66, 71, 158, 0.1);
+}
+
+.logo span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 /* Settings Panel */
 .controls {
     background: rgba(255, 255, 255, 0.95);
@@ -63,21 +84,11 @@ body {
     box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
-#fontSizeSlider {
-    flex: 1;
-    margin-right: 10px;
-}
-
-#fontSizeDisplay {
-    min-width: 50px;
-    font-weight: bold;
-    color: #3498db;
-}
-
 /* Buttons */
 .primary-btn, .secondary-btn {
     padding: 12px 24px;
     border: none;
+    color: white;
     border-radius: 8px;
     font-size: 16px;
     font-weight: 600;
@@ -85,25 +96,11 @@ body {
     transition: all 0.3s ease;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    background: #42479e;
 }
 
-.primary-btn {
-    background: linear-gradient(135deg, #3498db, #2980b9);
-    color: white;
-}
-
-.primary-btn:hover {
-    background: linear-gradient(135deg, #2980b9, #1f618d);
-    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
-}
-
-.secondary-btn {
-    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
-    color: white;
-}
-
-.secondary-btn:hover {
-    background: linear-gradient(135deg, #7f8c8d, #6c7b7d);
+.primary-btn:hover, .secondary-btn:hover {
+    background: #6063a9;
 }
 
 /* Main Content */
@@ -113,8 +110,8 @@ main {
 }
 
 .sticky-header {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     margin-bottom: 30px;
     background: rgba(255, 255, 255, 0.9);
@@ -160,6 +157,25 @@ main {
     font-size: 18px;
     font-weight: bold;
     color: #2c3e50;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+}
+
+.counter-title:hover {
+    background-color: rgba(66, 71, 158, 0.1);
+}
+
+.counter-title-input {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+    background: transparent;
+    border: 2px solid #42479e;
+    border-radius: 6px;
+    padding: 5px 10px;
+    outline: none;
 }
 
 .delete-counter {
@@ -199,13 +215,11 @@ main {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); */
 }
 
 .counter-btn:hover {
     border: 1px solid #939393;
 }
-
 
 .count-display {
     font-size: 60px;
@@ -215,13 +229,19 @@ main {
     text-align: center;
     padding: 20px;
     border-radius: 12px;
+    transition: transform 0.2s ease;
 }
 
+/* Simple count animation */
+.count-display.animate {
+    transform: scale(1.1);
+}
 
 /* Header controls */
 .header-controls {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 20px;
 }
 
@@ -229,17 +249,11 @@ main {
     padding: 10px 20px;
     border: none;
     border-radius: 8px;
-    background: linear-gradient(135deg, #8e44ad, #7d3c98);
     color: white;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-}
-
-.settings-btn:hover {
-    background: linear-gradient(135deg, #7d3c98, #6c2c7b);
-    box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3);
 }
 
 /* Settings Panel - nu als sidebar */
@@ -324,17 +338,6 @@ main {
     transition: border-color 0.3s ease;
 }
 
-/* Font size slider specifiek voor settings panel */
-.settings-panel #fontSizeSlider {
-    margin-bottom: 10px;
-}
-
-.settings-panel #fontSizeDisplay {
-    font-weight: bold;
-    color: #3498db;
-    text-align: center;
-}
-
 /* Responsive aanpassingen voor de sidebar */
 @media (max-width: 768px) {
     .settings-panel {
@@ -342,7 +345,19 @@ main {
         right: -100vw;
     }
     
+    .sticky-header {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .logo-section {
+        justify-content: center;
+    }
+    
     .header-controls {
+        justify-content: center;
         flex-direction: column;
         gap: 10px;
     }
@@ -367,11 +382,6 @@ main {
     .input-group label {
         min-width: auto;
         margin-bottom: 5px;
-    }
-    
-    .sticky-header {
-        flex-direction: column;
-        gap: 15px;
     }
     
     .counters-container {
