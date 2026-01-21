@@ -331,6 +331,36 @@ main { flex: 1; padding: 20px; }
     .week-grid { grid-template-columns: 1fr; }
 }
 
+/* Default - show full logo */
+.logo-full {
+    height: 120px;
+    width: auto;
+}
+
+.logo-icon {
+    display: none;
+}
+
+/* Switch to icon-only logo at 1200px and below */
+@media (max-width: 1200px) {
+    .logo-full {
+        display: none;
+    }
+    
+    .logo-icon {
+        display: block;
+        height: 80px; /* Slightly smaller than full logo */
+        width: auto;
+    }
+}
+
+/* Further reduce size on mobile */
+@media (max-width: 768px) {
+    .logo-icon {
+        height: 60px;
+    }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .settings-panel { width: 100vw; right: -100vw; }
