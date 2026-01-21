@@ -13,7 +13,10 @@ class CounterApp {
       'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
       'https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif',
       'https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif',
-      'https://media.giphy.com/media/l0HlNQ03J5JxX6lva/giphy.gif'
+      'https://media.giphy.com/media/l0HlNQ03J5JxX6lva/giphy.gif',
+      'https://media1.tenor.com/m/EmZ0N3llkAkAAAAC/cat-cats.gif',
+      'https://media1.tenor.com/m/_4nl1Qq1RKcAAAAd/partying-cat-party.gif'
+
     ];
     this.lastCelebrationDate = null;
     this.init();
@@ -25,7 +28,26 @@ class CounterApp {
     this.loadSettings();
     this.loadProgress();
     this.initializeWeeklyView();
+    this.setupFontDropdown(); // Add this line
     if (this.counters.length === 0) this.addCounter();
+  }
+
+  // Add this new method for font dropdown styling
+  setupFontDropdown() {
+    const fontSelect = document.getElementById('fontSelect');
+    const options = fontSelect.querySelectorAll('option');
+    
+    options.forEach(option => {
+      option.style.fontFamily = option.value;
+    });
+    
+    // Also apply font to the select itself when changed
+    fontSelect.addEventListener('change', () => {
+      fontSelect.style.fontFamily = fontSelect.value;
+    });
+    
+    // Set initial font for the select
+    fontSelect.style.fontFamily = fontSelect.value;
   }
 
   bindEvents() {
@@ -112,7 +134,7 @@ class CounterApp {
     const oldTotal = this.weeklyProgress[today];
     this.weeklyProgress[today] = totalToday;
     
-    // Check if target was just met
+    // Check if target was just met and celebration hasn't been shown today
     if (oldTotal < this.dailyTarget && totalToday >= this.dailyTarget && 
         this.lastCelebrationDate !== today) {
       this.showCelebration();
@@ -171,7 +193,7 @@ class CounterApp {
     // Auto-close after 5 seconds
     setTimeout(() => {
       this.closeCelebration();
-    }, 5000);
+    }, 10000);
   }
 
   closeCelebration() {
@@ -220,7 +242,7 @@ class CounterApp {
     }
   }
 
-  // Rest of your existing methods remain the same...
+  // Rest of your existing methods...
   selectBackgroundImage(option) {
     document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
       opt.classList.remove('selected')
@@ -353,9 +375,17 @@ class CounterApp {
         counter.count = 0;
         this.updateCounterDisplay(counter.id, 0);
       });
+      
+      // Reset celebration tracking for today when counters are reset
+      const today = this.getCurrentDayKey();
+      if (this.lastCelebrationDate === today) {
+        this.lastCelebrationDate = null;
+      }
+      
       this.updateTotal();
       this.updateDailyProgress();
       this.saveCounters();
+      this.saveProgress(); // Save the reset celebration state
     }
   }
 
@@ -365,9 +395,18 @@ class CounterApp {
       if (counter) {
         counter.count = 0;
         this.updateCounterDisplay(id, 0);
+        
+        // Reset celebration tracking for today if needed
+        const today = this.getCurrentDayKey();
+        const totalToday = this.counters.reduce((sum, counter) => sum + counter.count, 0);
+        if (totalToday < this.dailyTarget && this.lastCelebrationDate === today) {
+          this.lastCelebrationDate = null;
+        }
+        
         this.updateTotal();
         this.updateDailyProgress();
         this.saveCounters();
+        this.saveProgress();
       }
     }
   }
@@ -479,7 +518,10 @@ class CounterApp {
   }
 
   updateFontFamily() {
-    document.body.style.fontFamily = document.getElementById("fontSelect").value;
+    const selectedFont = document.getElementById("fontSelect").value;
+    document.body.style.fontFamily = selectedFont;
+    // Update the select element's font too
+    document.getElementById("fontSelect").style.fontFamily = selectedFont;
     this.saveSettings();
   }
 
@@ -502,6 +544,7 @@ class CounterApp {
     document.getElementById("bgColorInput").value = "#f5f5f5";
     document.getElementById("textColorInput").value = "#333333";
     document.getElementById("fontSelect").value = "'Open Sans', sans-serif";
+    document.getElementById("fontSelect").style.fontFamily = "'Open Sans', sans-serif";
     
     document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
       opt.classList.remove('selected')
@@ -581,6 +624,7 @@ class CounterApp {
     if (settings.fontFamily) {
       document.body.style.fontFamily = settings.fontFamily;
       document.getElementById("fontSelect").value = settings.fontFamily;
+      document.getElementById("fontSelect").style.fontFamily = settings.fontFamily;
     }
 
     if (settings.dailyTarget) {
