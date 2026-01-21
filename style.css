@@ -24,8 +24,7 @@ body {
 
 /* Header */
 .logo-section { display: flex; align-items: center; }
-.logo { padding: 10px 15px; border-radius: 8px; background: rgba(66, 71, 158, 0.1); }
-.logo-image { height: 40px; width: auto; }
+.logo-image { height: 60px; width: auto; }
 
 main { flex: 1; padding: 20px; }
 
