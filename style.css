@@ -325,6 +325,29 @@ main { flex: 1; padding: 20px; }
     100% { transform: scale(1); opacity: 1; }
 }
 
+.audio-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.volume-slider {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    background: #ddd;
+    outline: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #42479e;
+    cursor: pointer;
+}
+
 /* Mobile responsiveness for progress panel */
 @media (max-width: 768px) {
     .progress-panel { width: 100vw; right: -100vw; }

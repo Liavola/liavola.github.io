@@ -1,3 +1,78 @@
+// Audio feedback system
+class AudioFeedback {
+  constructor() {
+    this.audioContext = null;
+    this.enabled = true;
+    this.volume = 0.5;
+    this.initAudioContext();
+  }
+
+  initAudioContext() {
+    try {
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (error) {
+      console.log('Web Audio API not supported');
+      this.enabled = false;
+    }
+  }
+
+  playBeep(frequency = 800, duration = 150, type = 'sine') {
+    if (!this.enabled || !this.audioContext) return;
+
+    // Resume audio context if suspended (required by some browsers)
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
+    }
+
+    const oscillator = this.audioContext.createOscillator();
+    const gainNode = this.audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(this.audioContext.destination);
+
+    oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+    oscillator.type = type;
+
+    // Volume envelope for smooth sound
+    gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(this.volume * 0.15, this.audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration / 1000);
+
+    oscillator.start(this.audioContext.currentTime);
+    oscillator.stop(this.audioContext.currentTime + duration / 1000);
+  }
+
+  // Different sounds for different actions
+  playIncrement() {
+    this.playBeep(650, 120, 'sine'); // Higher pitch for increment
+  }
+
+  playDecrement() {
+    this.playBeep(450, 120, 'sine'); // Lower pitch for decrement
+  }
+
+  playReset() {
+    this.playBeep(300, 200, 'square'); // Different tone for reset
+  }
+
+  playAdd() {
+    this.playBeep(800, 100, 'triangle'); // Different tone for adding counter
+  }
+
+  setVolume(volume) {
+    this.volume = Math.max(0, Math.min(1, volume));
+  }
+
+  toggle() {
+    this.enabled = !this.enabled;
+    return this.enabled;
+  }
+
+  isEnabled() {
+    return this.enabled;
+  }
+}
+
 class CounterApp {
   constructor() {
     this.counters = [];
@@ -16,9 +91,12 @@ class CounterApp {
       'https://media.giphy.com/media/l0HlNQ03J5JxX6lva/giphy.gif',
       'https://media1.tenor.com/m/EmZ0N3llkAkAAAAC/cat-cats.gif',
       'https://media1.tenor.com/m/_4nl1Qq1RKcAAAAd/partying-cat-party.gif'
-
     ];
     this.lastCelebrationDate = null;
+    
+    // Initialize audio feedback
+    this.audioFeedback = new AudioFeedback();
+    
     this.init();
   }
 
@@ -28,11 +106,10 @@ class CounterApp {
     this.loadSettings();
     this.loadProgress();
     this.initializeWeeklyView();
-    this.setupFontDropdown(); // Add this line
+    this.setupFontDropdown();
     if (this.counters.length === 0) this.addCounter();
   }
 
-  // Add this new method for font dropdown styling
   setupFontDropdown() {
     const fontSelect = document.getElementById('fontSelect');
     const options = fontSelect.querySelectorAll('option');
@@ -41,12 +118,10 @@ class CounterApp {
       option.style.fontFamily = option.value;
     });
     
-    // Also apply font to the select itself when changed
     fontSelect.addEventListener('change', () => {
       fontSelect.style.fontFamily = fontSelect.value;
     });
     
-    // Set initial font for the select
     fontSelect.style.fontFamily = fontSelect.value;
   }
 
@@ -67,6 +142,18 @@ class CounterApp {
     bind("closeProgressBtn", "click", () => this.closeProgress());
     bind("closeCelebrationBtn", "click", () => this.closeCelebration());
 
+    // Audio control bindings (add these if you want audio controls in settings)
+    const audioToggleBtn = document.getElementById('toggleAudioBtn');
+    const volumeControl = document.getElementById('volumeControl');
+    
+    if (audioToggleBtn) {
+      audioToggleBtn.addEventListener('click', (e) => this.toggleAudio(e));
+    }
+    
+    if (volumeControl) {
+      volumeControl.addEventListener('input', (e) => this.updateVolume(e));
+    }
+
     document.querySelectorAll('.image-option').forEach(option => {
       if (!option.classList.contains('custom-upload')) {
         option.addEventListener('click', () => this.selectBackgroundImage(option));
@@ -76,6 +163,20 @@ class CounterApp {
     document.querySelector('.custom-upload').addEventListener('click', () => {
       document.getElementById('customImageInput').click();
     });
+  }
+
+  // Audio control methods
+  toggleAudio(e) {
+    const isEnabled = this.audioFeedback.toggle();
+    e.target.textContent = isEnabled ? '🔊 Audio On' : '🔇 Audio Off';
+    e.target.style.background = isEnabled ? '#42479e' : '#7f8c8d';
+    this.saveSettings();
+  }
+
+  updateVolume(e) {
+    const volume = e.target.value / 100;
+    this.audioFeedback.setVolume(volume);
+    this.saveSettings();
   }
 
   // Progress tracking methods
@@ -93,7 +194,6 @@ class CounterApp {
       
       document.getElementById(`${dayNames[index]}-date`).textContent = date.getDate();
       
-      // Highlight today
       const dayCard = document.querySelector(`[data-day="${day}"]`);
       if (this.isToday(date)) {
         dayCard.classList.add('today');
@@ -134,7 +234,6 @@ class CounterApp {
     const oldTotal = this.weeklyProgress[today];
     this.weeklyProgress[today] = totalToday;
     
-    // Check if target was just met and celebration hasn't been shown today
     if (oldTotal < this.dailyTarget && totalToday >= this.dailyTarget && 
         this.lastCelebrationDate !== today) {
       this.showCelebration();
@@ -184,13 +283,11 @@ class CounterApp {
     const modal = document.getElementById('celebrationModal');
     const img = document.getElementById('celebrationImage');
     
-    // Select random celebration gif
     const randomGif = this.celebrationGifs[Math.floor(Math.random() * this.celebrationGifs.length)];
     img.src = randomGif;
     
     modal.classList.add('show');
     
-    // Auto-close after 5 seconds
     setTimeout(() => {
       this.closeCelebration();
     }, 10000);
@@ -217,7 +314,7 @@ class CounterApp {
     document.getElementById("progressPanel").classList.remove("open");
   }
 
-  // Updated increment/decrement methods to track progress
+  // Updated increment/decrement methods with audio feedback
   incrementCounter(id) {
     const counter = this.counters.find(c => c.id === id);
     if (counter) {
@@ -227,6 +324,9 @@ class CounterApp {
       this.updateTotal();
       this.updateDailyProgress();
       this.saveCounters();
+      
+      // Play increment sound
+      this.audioFeedback.playIncrement();
     }
   }
 
@@ -239,10 +339,12 @@ class CounterApp {
       this.updateTotal();
       this.updateDailyProgress();
       this.saveCounters();
+      
+      // Play decrement sound
+      this.audioFeedback.playDecrement();
     }
   }
 
-  // Rest of your existing methods...
   selectBackgroundImage(option) {
     document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
       opt.classList.remove('selected')
@@ -376,7 +478,6 @@ class CounterApp {
         this.updateCounterDisplay(counter.id, 0);
       });
       
-      // Reset celebration tracking for today when counters are reset
       const today = this.getCurrentDayKey();
       if (this.lastCelebrationDate === today) {
         this.lastCelebrationDate = null;
@@ -385,7 +486,10 @@ class CounterApp {
       this.updateTotal();
       this.updateDailyProgress();
       this.saveCounters();
-      this.saveProgress(); // Save the reset celebration state
+      this.saveProgress();
+      
+      // Play reset sound
+      this.audioFeedback.playReset();
     }
   }
 
@@ -396,7 +500,6 @@ class CounterApp {
         counter.count = 0;
         this.updateCounterDisplay(id, 0);
         
-        // Reset celebration tracking for today if needed
         const today = this.getCurrentDayKey();
         const totalToday = this.counters.reduce((sum, counter) => sum + counter.count, 0);
         if (totalToday < this.dailyTarget && this.lastCelebrationDate === today) {
@@ -407,6 +510,9 @@ class CounterApp {
         this.updateDailyProgress();
         this.saveCounters();
         this.saveProgress();
+        
+        // Play reset sound
+        this.audioFeedback.playReset();
       }
     }
   }
@@ -417,6 +523,9 @@ class CounterApp {
     this.renderCounter(counter);
     this.updateTotal();
     this.saveCounters();
+    
+    // Play add counter sound
+    this.audioFeedback.playAdd();
   }
 
   renderCounter(counter) {
@@ -520,7 +629,6 @@ class CounterApp {
   updateFontFamily() {
     const selectedFont = document.getElementById("fontSelect").value;
     document.body.style.fontFamily = selectedFont;
-    // Update the select element's font too
     document.getElementById("fontSelect").style.fontFamily = selectedFont;
     this.saveSettings();
   }
@@ -556,6 +664,10 @@ class CounterApp {
     this.selectedBackgroundId = null;
     this.customImages = [];
     this.renderCustomImages();
+    
+    // Reset audio settings
+    this.audioFeedback = new AudioFeedback();
+    
     localStorage.removeItem("counterAppSettings");
   }
 
@@ -568,7 +680,9 @@ class CounterApp {
       fontFamily: document.body.style.fontFamily,
       textColor: document.body.style.color,
       customImages: this.customImages,
-      dailyTarget: this.dailyTarget
+      dailyTarget: this.dailyTarget,
+      audioEnabled: this.audioFeedback.isEnabled(),
+      audioVolume: this.audioFeedback.volume
     };
     localStorage.setItem("counterAppSettings", JSON.stringify(settings));
   }
@@ -630,6 +744,24 @@ class CounterApp {
     if (settings.dailyTarget) {
       this.dailyTarget = settings.dailyTarget;
       document.getElementById("dailyTargetInput").value = settings.dailyTarget;
+    }
+
+    // Load audio settings
+    if (settings.audioEnabled !== undefined) {
+      this.audioFeedback.enabled = settings.audioEnabled;
+      const audioBtn = document.getElementById('toggleAudioBtn');
+      if (audioBtn) {
+        audioBtn.textContent = settings.audioEnabled ? '🔊 Audio On' : '🔇 Audio Off';
+        audioBtn.style.background = settings.audioEnabled ? '#42479e' : '#7f8c8d';
+      }
+    }
+    
+    if (settings.audioVolume !== undefined) {
+      this.audioFeedback.setVolume(settings.audioVolume);
+      const volumeControl = document.getElementById('volumeControl');
+      if (volumeControl) {
+        volumeControl.value = settings.audioVolume * 100;
+      }
     }
   }
 
