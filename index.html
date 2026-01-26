@@ -66,8 +66,44 @@
       <aside class="settings-panel" id="settingsPanel">
         <div class="settings-content">
           <div class="settings-header">
-            <h2>Customization</h2>
+            <h2>Settings</h2>
             <button id="closeSettingsBtn" class="close-btn">×</button>
+          </div>
+
+          <div class="input-group">
+            <label>Daily Target:</label>
+            <input
+              type="number"
+              id="dailyTargetInput"
+              min="1"
+              value="10"
+              placeholder="Set your daily target"
+            />
+            <button id="toggleProgressBtn" class="secondary-btn">
+              📊 View Progress
+            </button>
+          </div>
+
+          <div class="input-group">
+            <label>Audio Feedback:</label>
+            <div class="audio-controls">
+              <button id="toggleAudioBtn" class="secondary-btn">
+                🔊 Audio On
+              </button>
+              <input
+                type="range"
+                id="volumeControl"
+                min="0"
+                max="100"
+                value="50"
+                class="volume-slider"
+                title="Volume"
+              />
+            </div>
+          </div>
+
+          <div class="settings-sub-header">
+            <h4>Customization</h4>
           </div>
 
           <div class="input-group">
@@ -150,20 +186,6 @@
           </div>
 
           <div class="input-group">
-            <label>Daily Target:</label>
-            <input
-              type="number"
-              id="dailyTargetInput"
-              min="1"
-              value="10"
-              placeholder="Set your daily target"
-            />
-            <button id="toggleProgressBtn" class="secondary-btn">
-              📊 View Progress
-            </button>
-          </div>
-
-          <div class="input-group">
             <label>Text Color:</label>
             <input type="color" id="textColorInput" value="#333333" />
             <label>Font Family:</label>
@@ -186,14 +208,6 @@
               <option value="'MedievalSharp', cursive">Medieval Sharp</option>
             </select>
           </div>
-
-        <div class="input-group">
-          <label>Audio Feedback:</label>
-          <div class="audio-controls">
-            <button id="toggleAudioBtn" class="secondary-btn">🔊 Audio On</button>
-            <input type="range" id="volumeControl" min="0" max="100" value="50" class="volume-slider" title="Volume">
-          </div>
-        </div>
 
           <div class="input-group">
             <button id="resetStylesBtn" class="secondary-btn">
