@@ -683,7 +683,7 @@ main {
 
 /* Default - show full logo */
 .logo-full {
-  height: 120px;
+  height: auto;
   width: 300px;
 }
 
