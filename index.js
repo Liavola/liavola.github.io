@@ -90,7 +90,8 @@ class CounterApp {
       'https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif',
       'https://media.giphy.com/media/l0HlNQ03J5JxX6lva/giphy.gif',
       'https://media1.tenor.com/m/EmZ0N3llkAkAAAAC/cat-cats.gif',
-      'https://media1.tenor.com/m/_4nl1Qq1RKcAAAAd/partying-cat-party.gif'
+      'https://media1.tenor.com/m/_4nl1Qq1RKcAAAAd/partying-cat-party.gif',
+      'https://media.tenor.com/UI64UNgFasgAAAAj/elgatitolover-elgatitoloves.gif'
     ];
     this.lastCelebrationDate = null;
     

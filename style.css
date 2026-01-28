@@ -63,6 +63,7 @@ body {
 main {
   flex: 1;
   padding: 20px;
+  margin: 0px 75px;
 }
 
 .sticky-header {
@@ -96,7 +97,7 @@ main {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.total-count { 
+.total-count {
   color: inherit;
 }
 
@@ -696,6 +697,10 @@ main {
 
 /* Switch to icon-only logo at 1200px and below */
 @media (max-width: 1200px) {
+  main {
+    margin: 0px;
+  }
+
   .logo-full {
     display: none;
   }
