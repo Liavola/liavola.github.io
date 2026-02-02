@@ -143,7 +143,7 @@ class CounterApp {
     bind("closeProgressBtn", "click", () => this.closeProgress());
     bind("closeCelebrationBtn", "click", () => this.closeCelebration());
 
-    // Audio control bindings (add these if you want audio controls in settings)
+    // Audio control bindings
     const audioToggleBtn = document.getElementById('toggleAudioBtn');
     const volumeControl = document.getElementById('volumeControl');
     
@@ -346,29 +346,38 @@ class CounterApp {
     }
   }
 
-  selectBackgroundImage(option) {
-    document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
-      opt.classList.remove('selected')
-    );
-    option.classList.add('selected');
+selectBackgroundImage(option) {
+  document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
+    opt.classList.remove('selected')
+  );
+  option.classList.add('selected');
+  
+  const imageUrl = option.dataset.image;
+  this.selectedBackground = imageUrl;
+  this.selectedBackgroundType = 'default';
+  this.selectedBackgroundId = null;
+  
+  if (imageUrl) {
+    Object.assign(document.body.style, {
+      backgroundImage: `url(${imageUrl})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat"
+    });
     
-    const imageUrl = option.dataset.image;
-    this.selectedBackground = imageUrl;
-    this.selectedBackgroundType = 'default';
-    this.selectedBackgroundId = null;
+
+    const textColor = '#ffffff'; 
+    document.body.style.color = textColor;
+    document.getElementById("textColorInput").value = textColor;
     
-    if (imageUrl) {
-      Object.assign(document.body.style, {
-        backgroundImage: `url(${imageUrl})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat"
-      });
-    } else {
-      document.body.style.backgroundImage = "";
-    }
-    this.saveSettings();
+  } else {
+    document.body.style.backgroundImage = "";
+    const bgColor = document.body.style.backgroundColor || '#f5f5f5';
+    this.autoAdjustTextColor(bgColor);
   }
+  
+  this.saveSettings();
+}
 
   handleCustomImageUpload(event) {
     const file = event.target.files[0];
@@ -437,27 +446,31 @@ class CounterApp {
   }
 
   selectBackgroundImageById(imageId) {
-    document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
-      opt.classList.remove('selected')
-    );
+  document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
+    opt.classList.remove('selected')
+  );
+  
+  const customImage = this.customImages.find(img => img.id === imageId);
+  if (customImage) {
+    document.querySelector(`[data-custom-id="${imageId}"]`).classList.add('selected');
+    this.selectedBackground = customImage.data;
+    this.selectedBackgroundType = 'custom';
+    this.selectedBackgroundId = imageId;
     
-    const customImage = this.customImages.find(img => img.id === imageId);
-    if (customImage) {
-      document.querySelector(`[data-custom-id="${imageId}"]`).classList.add('selected');
-      this.selectedBackground = customImage.data;
-      this.selectedBackgroundType = 'custom';
-      this.selectedBackgroundId = imageId;
-      
-      Object.assign(document.body.style, {
-        backgroundImage: `url(${customImage.data})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat"
-      });
-      
-      this.saveSettings();
-    }
+    Object.assign(document.body.style, {
+      backgroundImage: `url(${customImage.data})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat"
+    });
+    
+    const textColor = '#ffffff';
+    document.body.style.color = textColor;
+    document.getElementById("textColorInput").value = textColor;
+    
+    this.saveSettings();
   }
+}
 
   deleteCustomImage(imageId) {
     if (confirm('Are you sure you want to delete this custom image?')) {
@@ -545,12 +558,69 @@ class CounterApp {
       </div>
       <div class="counter-controls">
         <button class="counter-btn minus" onclick="app.decrementCounter(${counter.id})">−</button>
-        <div class="count-display">${counter.count}</div>
+        <div class="count-display" onclick="app.editCountValue(${counter.id})" title="Click to edit count">${counter.count}</div>
         <button class="counter-btn plus" onclick="app.incrementCounter(${counter.id})">+</button>
       </div>
     `;
 
     container.appendChild(counterDiv);
+  }
+
+  editCountValue(id) {
+    const counter = this.counters.find(c => c.id === id);
+    const displayElement = document.querySelector(`[data-id="${id}"] .count-display`);
+    
+    if (counter && displayElement) {
+      const input = document.createElement("input");
+      input.type = "number";
+      input.className = "count-input";
+      input.value = counter.count;
+      input.min = "0";
+      
+      displayElement.replaceWith(input);
+      input.focus();
+      input.select();
+      
+      const saveCount = () => {
+        const newCount = parseInt(input.value);
+        
+        if (isNaN(newCount) || newCount < 0) {
+          alert('Please enter a valid positive number');
+          input.focus();
+          return;
+        }
+        
+        const oldCount = counter.count;
+        counter.count = newCount;
+        
+        const newDisplayElement = document.createElement("div");
+        newDisplayElement.className = "count-display";
+        newDisplayElement.onclick = () => this.editCountValue(id);
+        newDisplayElement.title = "Click to edit count";
+        newDisplayElement.textContent = newCount;
+        
+        input.replaceWith(newDisplayElement);
+        
+        this.animateCounter(id);
+        this.updateTotal();
+        this.updateDailyProgress();
+        this.saveCounters();
+        
+        // Play appropriate sound based on whether count increased or decreased
+        if (newCount > oldCount) {
+          this.audioFeedback.playIncrement();
+        } else if (newCount < oldCount) {
+          this.audioFeedback.playDecrement();
+        }
+      };
+      
+      input.addEventListener("blur", saveCount);
+      input.addEventListener("keypress", e => {
+        if (e.key === "Enter") {
+          saveCount();
+        }
+      });
+    }
   }
 
   editCounterName(id) {
@@ -617,10 +687,15 @@ class CounterApp {
     document.getElementById("totalCount").textContent = total;
   }
 
-  updateBackgroundColor() {
-    document.body.style.backgroundColor = document.getElementById("bgColorInput").value;
-    this.saveSettings();
-  }
+updateBackgroundColor() {
+  const bgColor = document.getElementById("bgColorInput").value;
+  document.body.style.backgroundColor = bgColor;
+  
+  // Auto adjust text color based on background
+  this.autoAdjustTextColor(bgColor);
+  
+  this.saveSettings();
+}
 
   updateTextColor() {
     document.body.style.color = document.getElementById("textColorInput").value;
@@ -672,6 +747,49 @@ class CounterApp {
     localStorage.removeItem("counterAppSettings");
   }
 
+  calculateLuminance(color) {
+  // Convert hex to RGB
+  let r, g, b;
+  
+  if (color.startsWith('#')) {
+    const hex = color.replace('#', '');
+    r = parseInt(hex.substr(0, 2), 16);
+    g = parseInt(hex.substr(2, 2), 16);
+    b = parseInt(hex.substr(4, 2), 16);
+  } else if (color.startsWith('rgb')) {
+    const rgb = color.match(/\d+/g);
+    r = parseInt(rgb[0]);
+    g = parseInt(rgb[1]);
+    b = parseInt(rgb[2]);
+  } else {
+    return 0.5; // Default middle value
+  }
+  
+  // Calculate relative luminance
+  const rsRGB = r / 255;
+  const gsRGB = g / 255;
+  const bsRGB = b / 255;
+  
+  const rLinear = rsRGB <= 0.03928 ? rsRGB / 12.92 : Math.pow((rsRGB + 0.055) / 1.055, 2.4);
+  const gLinear = gsRGB <= 0.03928 ? gsRGB / 12.92 : Math.pow((gsRGB + 0.055) / 1.055, 2.4);
+  const bLinear = bsRGB <= 0.03928 ? bsRGB / 12.92 : Math.pow((bsRGB + 0.055) / 1.055, 2.4);
+  
+  return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
+}
+
+autoAdjustTextColor(backgroundColor) {
+  const luminance = this.calculateLuminance(backgroundColor);
+  
+  // If luminance is low (dark background), use light text
+  // If luminance is high (light background), use dark text
+  const textColor = luminance > 0.5 ? '#333333' : '#ffffff';
+  
+  document.body.style.color = textColor;
+  document.getElementById("textColorInput").value = textColor;
+  
+  return textColor;
+}
+
   saveSettings() {
     const settings = {
       backgroundColor: document.body.style.backgroundColor,
@@ -702,10 +820,13 @@ class CounterApp {
       document.getElementById("bgColorInput").value = settings.backgroundColor;
     }
 
-    if (settings.textColor) {
-      document.body.style.color = settings.textColor;
-      document.getElementById("textColorInput").value = settings.textColor;
-    }
+  if (settings.textColor) {
+    document.body.style.color = settings.textColor;
+    document.getElementById("textColorInput").value = settings.textColor;
+  } else if (settings.backgroundColor) {
+    // If no manual text color was set, auto-adjust
+    this.autoAdjustTextColor(settings.backgroundColor);
+  }
     
     if (settings.customImages) {
       this.customImages = settings.customImages;

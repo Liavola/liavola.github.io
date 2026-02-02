@@ -97,6 +97,25 @@ main {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.counter,
+.counter *,
+.count-display,
+.counter-title,
+.counter-btn {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.count-input,
+.counter-title-input {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
 .total-count {
   color: inherit;
 }
@@ -672,6 +691,52 @@ main {
   border-radius: 50%;
   background: #42479e;
   cursor: pointer;
+}
+
+/* Count input styling */
+.count-input {
+  font-weight: bold;
+  font-size: 40px;
+  color: inherit;
+  min-width: 100px;
+  max-width: 150px;
+  text-align: center;
+  background: transparent;
+  border: 2px solid #42479e;
+  border-radius: 8px;
+  padding: 5px;
+  outline: none;
+  font-family: inherit;
+}
+
+.count-input:focus {
+  border-color: #6063a9;
+  box-shadow: 0 0 0 3px rgba(66, 71, 158, 0.2);
+}
+
+/* Add cursor pointer to count display */
+.count-display {
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  padding: 5px;
+  border-radius: 8px;
+}
+
+.count-display:hover {
+  background: rgba(66, 71, 158, 0.1);
+}
+
+.count-display.animate {
+  transform: scale(1.1);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .count-input {
+    font-size: 60px;
+    padding: 5px;
+    min-width: 100px;
+  }
 }
 
 /* Mobile responsiveness for progress panel */
