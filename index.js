@@ -83,6 +83,8 @@ class CounterApp {
     this.selectedBackgroundId = null;
     this.dailyTarget = 10;
     this.weeklyProgress = {};
+    this.currentWeekOffset = 0; 
+
     this.celebrationGifs = [
       'https://media.giphy.com/media/3oz8xAFtqoOUUrsh7W/giphy.gif',
       'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
@@ -142,6 +144,11 @@ class CounterApp {
     bind("toggleProgressBtn", "click", () => this.toggleProgress());
     bind("closeProgressBtn", "click", () => this.closeProgress());
     bind("closeCelebrationBtn", "click", () => this.closeCelebration());
+    bind("prevWeekBtn", "click", () => this.navigateWeek(-1));
+    bind("nextWeekBtn", "click", () => this.navigateWeek(1));
+    bind("goToCurrentWeekBtn", "click", () => this.goToCurrentWeek());
+
+
 
     // Audio control bindings
     const audioToggleBtn = document.getElementById('toggleAudioBtn');
@@ -180,28 +187,153 @@ class CounterApp {
     this.saveSettings();
   }
 
+  // Week navigation
+  getWeekNumber(date) {
+    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+    const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  }
+
+  navigateWeek(direction) {
+    this.currentWeekOffset += direction;
+    this.initializeWeeklyView();
+
+    // Enable/disable next button if viewing current week
+    const nextBtn = document.getElementById('nextWeekBtn');
+    nextBtn.disabled = this.currentWeekOffset >= 0; 
+  }
+
   // Progress tracking methods
   initializeWeeklyView() {
-    const today = new Date();
-    const monday = this.getMonday(today);
+  const today = new Date();
+  const viewDate = new Date(today);
+  viewDate.setDate(today.getDate() + (this.currentWeekOffset * 7));
+
+  const monday = this.getMonday(viewDate);
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  
+  const weekNumber = this.getWeekNumber(monday);
+
+  // Update week title 
+  const weekTitle = document.getElementById('weekTitle');
+  const weekNumberSpan = document.getElementById('weekNumber');
+  const dateRangeSpan = document.getElementById('dateRange');
+
+  if (this.currentWeekOffset === 0) {
+    weekTitle.textContent = 'This Week'; 
+  } else if (this.currentWeekOffset === -1) {
+    weekTitle.textContent = 'Last Week';
+  } else if (this.currentWeekOffset < -1) {
+    weekTitle.textContent = `${Math.abs(this.currentWeekOffset)} Weeks Ago`;
+  }
+
+  weekNumberSpan.textContent = `Week ${weekNumber}`;
+  
+  // Format date range
+  const formatShortDate = (date) => {
+    const day = date.getDate();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${day} ${months[date.getMonth()]}`;
+  };
+  
+  // Show date range
+  if (monday.getMonth() === friday.getMonth()) {
+    // Same month: "2 - 6 Dec"
+    dateRangeSpan.textContent = `${monday.getDate()} - ${formatShortDate(friday)}`;
+  } else {
+    // Different months: "28 Nov - 2 Dec"
+    dateRangeSpan.textContent = `${formatShortDate(monday)} - ${formatShortDate(friday)}`;
+  }
+
+  // Show/hide "Go to This Week" button
+  const goToCurrentBtn = document.getElementById('goToCurrentWeekBtn');
+  if (goToCurrentBtn) {
+    goToCurrentBtn.style.display = this.currentWeekOffset === 0 ? 'none' : 'block';
+  }
+
+  // Rest of the existing code for days...
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+  const dayNames = ['mon', 'tue', 'wed', 'thu', 'fri'];
+  
+  days.forEach((day, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    const dateStr = this.formatDate(date);
     
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-    const dayNames = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    document.getElementById(`${dayNames[index]}-date`).textContent = date.getDate();
+    
+    const dayCard = document.querySelector(`[data-day="${day}"]`);
+
+    dayCard.classList.remove('today', 'future-day');
+
+    if (this.isToday(date)) {
+      dayCard.classList.add('today');
+    }
+
+    if (date > today) {
+      dayCard.classList.add('future-day');
+    }
+  });
+  
+  this.updateWeeklyView();
+}
+
+  updateWeeklyView() {
+    const today = new Date();
+    const viewDate = new Date(today);
+    viewDate.setDate(today.getDate() + (this.currentWeekOffset * 7));
+
+    const monday = this.getMonday(viewDate);
+    
+    const dayNames = ['mon', 'tue', 'wed', 'thu', 'fri'];
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    
+    let weeklyTotal = 0;
+    let daysCompleted = 0;
     
     days.forEach((day, index) => {
       const date = new Date(monday);
       date.setDate(monday.getDate() + index);
-      const dateStr = this.formatDate(date);
+      const dateKey = this.formatDate(date);
+      const count = this.weeklyProgress[dateKey] || 0;
       
-      document.getElementById(`${dayNames[index]}-date`).textContent = date.getDate();
+      document.getElementById(`${dayNames[index]}-count`).textContent = count;
       
       const dayCard = document.querySelector(`[data-day="${day}"]`);
-      if (this.isToday(date)) {
-        dayCard.classList.add('today');
+      
+      if (count >= this.dailyTarget) {
+        dayCard.classList.add('target-met');
+        daysCompleted++;
+      } else {
+        dayCard.classList.remove('target-met');
       }
+      
+      weeklyTotal += count;
     });
     
-    this.updateWeeklyView();
+    document.getElementById('weeklyTotal').textContent = weeklyTotal;
+    document.getElementById('weeklyTarget').textContent = this.dailyTarget * 5;
+    document.getElementById('daysCompleted').textContent = `${daysCompleted}/5`;
+  }
+
+  toggleProgress() {
+    const panel = document.getElementById("progressPanel");
+    panel.classList.toggle("open");
+
+    if (panel.classList.contains("open")) {
+      // Reset to current week when opening 
+      this.currentWeekOffset = 0;
+      this.initializeWeeklyView();
+
+      // Disable next button for current week
+      document.getElementById('nextWeekBtn').disabled = true;
+    } 
+
+    if (document.getElementById("progressPanel").classList.contains("open")) {
+      this.updateWeeklyView();
+    }
   }
 
   getMonday(date) {
@@ -219,6 +351,12 @@ class CounterApp {
     const today = new Date();
     return date.toDateString() === today.toDateString();
   }
+
+  goToCurrentWeek() {
+  this.currentWeekOffset = 0;
+  this.initializeWeeklyView();
+  document.getElementById('nextWeekBtn').disabled = true;
+}
 
   getCurrentDayKey() {
     return this.formatDate(new Date());
@@ -246,40 +384,6 @@ class CounterApp {
     this.saveProgress();
   }
 
-  updateWeeklyView() {
-    const today = new Date();
-    const monday = this.getMonday(today);
-    
-    const dayNames = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-    
-    let weeklyTotal = 0;
-    let daysCompleted = 0;
-    
-    days.forEach((day, index) => {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + index);
-      const dateKey = this.formatDate(date);
-      const count = this.weeklyProgress[dateKey] || 0;
-      
-      document.getElementById(`${dayNames[index]}-count`).textContent = count;
-      
-      const dayCard = document.querySelector(`[data-day="${day}"]`);
-      if (count >= this.dailyTarget) {
-        dayCard.classList.add('target-met');
-        daysCompleted++;
-      } else {
-        dayCard.classList.remove('target-met');
-      }
-      
-      weeklyTotal += count;
-    });
-    
-    document.getElementById('weeklyTotal').textContent = weeklyTotal;
-    document.getElementById('weeklyTarget').textContent = this.dailyTarget * 7;
-    document.getElementById('daysCompleted').textContent = `${daysCompleted}/7`;
-  }
-
   showCelebration() {
     const modal = document.getElementById('celebrationModal');
     const img = document.getElementById('celebrationImage');
@@ -302,13 +406,6 @@ class CounterApp {
     this.dailyTarget = parseInt(document.getElementById('dailyTargetInput').value) || 10;
     this.updateWeeklyView();
     this.saveProgress();
-  }
-
-  toggleProgress() {
-    document.getElementById("progressPanel").classList.toggle("open");
-    if (document.getElementById("progressPanel").classList.contains("open")) {
-      this.updateWeeklyView();
-    }
   }
 
   closeProgress() {
@@ -346,38 +443,37 @@ class CounterApp {
     }
   }
 
-selectBackgroundImage(option) {
-  document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
-    opt.classList.remove('selected')
-  );
-  option.classList.add('selected');
-  
-  const imageUrl = option.dataset.image;
-  this.selectedBackground = imageUrl;
-  this.selectedBackgroundType = 'default';
-  this.selectedBackgroundId = null;
-  
-  if (imageUrl) {
-    Object.assign(document.body.style, {
-      backgroundImage: `url(${imageUrl})`,
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat"
-    });
+  selectBackgroundImage(option) {
+    document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
+      opt.classList.remove('selected')
+    );
+    option.classList.add('selected');
     
-
-    const textColor = '#ffffff'; 
-    document.body.style.color = textColor;
-    document.getElementById("textColorInput").value = textColor;
+    const imageUrl = option.dataset.image;
+    this.selectedBackground = imageUrl;
+    this.selectedBackgroundType = 'default';
+    this.selectedBackgroundId = null;
     
-  } else {
-    document.body.style.backgroundImage = "";
-    const bgColor = document.body.style.backgroundColor || '#f5f5f5';
-    this.autoAdjustTextColor(bgColor);
+    if (imageUrl) {
+      Object.assign(document.body.style, {
+        backgroundImage: `url(${imageUrl})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat"
+      });
+      
+      const textColor = '#ffffff'; 
+      document.body.style.color = textColor;
+      document.getElementById("textColorInput").value = textColor;
+      
+    } else {
+      document.body.style.backgroundImage = "";
+      const bgColor = document.body.style.backgroundColor || '#f5f5f5';
+      this.autoAdjustTextColor(bgColor);
+    }
+    
+    this.saveSettings();
   }
-  
-  this.saveSettings();
-}
 
   handleCustomImageUpload(event) {
     const file = event.target.files[0];
@@ -446,31 +542,31 @@ selectBackgroundImage(option) {
   }
 
   selectBackgroundImageById(imageId) {
-  document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
-    opt.classList.remove('selected')
-  );
-  
-  const customImage = this.customImages.find(img => img.id === imageId);
-  if (customImage) {
-    document.querySelector(`[data-custom-id="${imageId}"]`).classList.add('selected');
-    this.selectedBackground = customImage.data;
-    this.selectedBackgroundType = 'custom';
-    this.selectedBackgroundId = imageId;
+    document.querySelectorAll('.image-option, .custom-image-option').forEach(opt => 
+      opt.classList.remove('selected')
+    );
     
-    Object.assign(document.body.style, {
-      backgroundImage: `url(${customImage.data})`,
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat"
-    });
-    
-    const textColor = '#ffffff';
-    document.body.style.color = textColor;
-    document.getElementById("textColorInput").value = textColor;
-    
-    this.saveSettings();
+    const customImage = this.customImages.find(img => img.id === imageId);
+    if (customImage) {
+      document.querySelector(`[data-custom-id="${imageId}"]`).classList.add('selected');
+      this.selectedBackground = customImage.data;
+      this.selectedBackgroundType = 'custom';
+      this.selectedBackgroundId = imageId;
+      
+      Object.assign(document.body.style, {
+        backgroundImage: `url(${customImage.data})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat"
+      });
+      
+      const textColor = '#ffffff';
+      document.body.style.color = textColor;
+      document.getElementById("textColorInput").value = textColor;
+      
+      this.saveSettings();
+    }
   }
-}
 
   deleteCustomImage(imageId) {
     if (confirm('Are you sure you want to delete this custom image?')) {
@@ -687,15 +783,15 @@ selectBackgroundImage(option) {
     document.getElementById("totalCount").textContent = total;
   }
 
-updateBackgroundColor() {
-  const bgColor = document.getElementById("bgColorInput").value;
-  document.body.style.backgroundColor = bgColor;
-  
-  // Auto adjust text color based on background
-  this.autoAdjustTextColor(bgColor);
-  
-  this.saveSettings();
-}
+  updateBackgroundColor() {
+    const bgColor = document.getElementById("bgColorInput").value;
+    document.body.style.backgroundColor = bgColor;
+    
+    // Auto adjust text color based on background
+    this.autoAdjustTextColor(bgColor);
+    
+    this.saveSettings();
+  }
 
   updateTextColor() {
     document.body.style.color = document.getElementById("textColorInput").value;
@@ -748,47 +844,47 @@ updateBackgroundColor() {
   }
 
   calculateLuminance(color) {
-  // Convert hex to RGB
-  let r, g, b;
-  
-  if (color.startsWith('#')) {
-    const hex = color.replace('#', '');
-    r = parseInt(hex.substr(0, 2), 16);
-    g = parseInt(hex.substr(2, 2), 16);
-    b = parseInt(hex.substr(4, 2), 16);
-  } else if (color.startsWith('rgb')) {
-    const rgb = color.match(/\d+/g);
-    r = parseInt(rgb[0]);
-    g = parseInt(rgb[1]);
-    b = parseInt(rgb[2]);
-  } else {
-    return 0.5; // Default middle value
+    // Convert hex to RGB
+    let r, g, b;
+    
+    if (color.startsWith('#')) {
+      const hex = color.replace('#', '');
+      r = parseInt(hex.substr(0, 2), 16);
+      g = parseInt(hex.substr(2, 2), 16);
+      b = parseInt(hex.substr(4, 2), 16);
+    } else if (color.startsWith('rgb')) {
+      const rgb = color.match(/\d+/g);
+      r = parseInt(rgb[0]);
+      g = parseInt(rgb[1]);
+      b = parseInt(rgb[2]);
+    } else {
+      return 0.5; // Default middle value
+    }
+    
+    // Calculate relative luminance
+    const rsRGB = r / 255;
+    const gsRGB = g / 255;
+    const bsRGB = b / 255;
+    
+    const rLinear = rsRGB <= 0.03928 ? rsRGB / 12.92 : Math.pow((rsRGB + 0.055) / 1.055, 2.4);
+    const gLinear = gsRGB <= 0.03928 ? gsRGB / 12.92 : Math.pow((gsRGB + 0.055) / 1.055, 2.4);
+    const bLinear = bsRGB <= 0.03928 ? bsRGB / 12.92 : Math.pow((bsRGB + 0.055) / 1.055, 2.4);
+    
+    return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
   }
-  
-  // Calculate relative luminance
-  const rsRGB = r / 255;
-  const gsRGB = g / 255;
-  const bsRGB = b / 255;
-  
-  const rLinear = rsRGB <= 0.03928 ? rsRGB / 12.92 : Math.pow((rsRGB + 0.055) / 1.055, 2.4);
-  const gLinear = gsRGB <= 0.03928 ? gsRGB / 12.92 : Math.pow((gsRGB + 0.055) / 1.055, 2.4);
-  const bLinear = bsRGB <= 0.03928 ? bsRGB / 12.92 : Math.pow((bsRGB + 0.055) / 1.055, 2.4);
-  
-  return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
-}
 
-autoAdjustTextColor(backgroundColor) {
-  const luminance = this.calculateLuminance(backgroundColor);
-  
-  // If luminance is low (dark background), use light text
-  // If luminance is high (light background), use dark text
-  const textColor = luminance > 0.5 ? '#333333' : '#ffffff';
-  
-  document.body.style.color = textColor;
-  document.getElementById("textColorInput").value = textColor;
-  
-  return textColor;
-}
+  autoAdjustTextColor(backgroundColor) {
+    const luminance = this.calculateLuminance(backgroundColor);
+    
+    // If luminance is low (dark background), use light text
+    // If luminance is high (light background), use dark text
+    const textColor = luminance > 0.5 ? '#333333' : '#ffffff';
+    
+    document.body.style.color = textColor;
+    document.getElementById("textColorInput").value = textColor;
+    
+    return textColor;
+  }
 
   saveSettings() {
     const settings = {
@@ -820,13 +916,13 @@ autoAdjustTextColor(backgroundColor) {
       document.getElementById("bgColorInput").value = settings.backgroundColor;
     }
 
-  if (settings.textColor) {
-    document.body.style.color = settings.textColor;
-    document.getElementById("textColorInput").value = settings.textColor;
-  } else if (settings.backgroundColor) {
-    // If no manual text color was set, auto-adjust
-    this.autoAdjustTextColor(settings.backgroundColor);
-  }
+    if (settings.textColor) {
+      document.body.style.color = settings.textColor;
+      document.getElementById("textColorInput").value = settings.textColor;
+    } else if (settings.backgroundColor) {
+      // If no manual text color was set, auto-adjust
+      this.autoAdjustTextColor(settings.backgroundColor);
+    }
     
     if (settings.customImages) {
       this.customImages = settings.customImages;

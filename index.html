@@ -217,76 +217,79 @@
         </div>
       </aside>
       <aside class="progress-panel" id="progressPanel">
-        <div class="progress-content">
-          <div class="progress-header">
-            <h2>Weekly Progress</h2>
-            <button id="closeProgressBtn" class="close-btn">×</button>
-          </div>
+  <div class="progress-content">
+    <div class="progress-header">
+      <h2>Weekly Progress</h2>
+      <button id="closeProgressBtn" class="close-btn">×</button>
+    </div>
 
-          <div class="current-week">
-            <h3 id="weekTitle">This Week</h3>
-            <div class="week-grid">
-              <div class="day-card" data-day="monday">
-                <div class="day-name">Mon</div>
-                <div class="day-date" id="mon-date"></div>
-                <div class="day-count" id="mon-count">0</div>
-                <div class="day-target" id="mon-target">🎯</div>
-              </div>
-              <div class="day-card" data-day="tuesday">
-                <div class="day-name">Tue</div>
-                <div class="day-date" id="tue-date"></div>
-                <div class="day-count" id="tue-count">0</div>
-                <div class="day-target" id="tue-target">🎯</div>
-              </div>
-              <div class="day-card" data-day="wednesday">
-                <div class="day-name">Wed</div>
-                <div class="day-date" id="wed-date"></div>
-                <div class="day-count" id="wed-count">0</div>
-                <div class="day-target" id="wed-target">🎯</div>
-              </div>
-              <div class="day-card" data-day="thursday">
-                <div class="day-name">Thu</div>
-                <div class="day-date" id="thu-date"></div>
-                <div class="day-count" id="thu-count">0</div>
-                <div class="day-target" id="thu-target">🎯</div>
-              </div>
-              <div class="day-card" data-day="friday">
-                <div class="day-name">Fri</div>
-                <div class="day-date" id="fri-date"></div>
-                <div class="day-count" id="fri-count">0</div>
-                <div class="day-target" id="fri-target">🎯</div>
-              </div>
-              <div class="day-card" data-day="saturday">
-                <div class="day-name">Sat</div>
-                <div class="day-date" id="sat-date"></div>
-                <div class="day-count" id="sat-count">0</div>
-                <div class="day-target" id="sat-target">🎯</div>
-              </div>
-              <div class="day-card" data-day="sunday">
-                <div class="day-name">Sun</div>
-                <div class="day-date" id="sun-date"></div>
-                <div class="day-count" id="sun-count">0</div>
-                <div class="day-target" id="sun-target">🎯</div>
-              </div>
-            </div>
+   <!-- Week Navigation -->
+<div class="week-navigation">
+  <button id="prevWeekBtn" class="nav-week-btn">‹</button>
+  <div class="week-info">
+    <h3 id="weekTitle">This Week</h3>
+    <span id="weekNumber">Week 1</span>
+    <span id="dateRange" class="date-range">1 - 5 Jan</span>
+  </div>
+  <button id="nextWeekBtn" class="nav-week-btn">›</button>
+</div>
 
-            <div class="week-summary">
-              <div class="summary-item">
-                <span>Weekly Total:</span>
-                <span id="weeklyTotal">0</span>
-              </div>
-              <div class="summary-item">
-                <span>Weekly Target:</span>
-                <span id="weeklyTarget">70</span>
-              </div>
-              <div class="summary-item">
-                <span>Days Completed:</span>
-                <span id="daysCompleted">0/7</span>
-              </div>
-            </div>
-          </div>
+<!-- Go to Current Week Button -->
+<button id="goToCurrentWeekBtn" class="go-to-current-btn" style="display: none;">
+  📅 Go to This Week
+</button>
+
+    <div class="current-week">
+      <div class="week-grid">
+        <div class="day-card" data-day="monday">
+          <div class="day-name">Mon</div>
+          <div class="day-date" id="mon-date"></div>
+          <div class="day-count" id="mon-count">0</div>
+          <div class="day-target" id="mon-target">🎯</div>
         </div>
-      </aside>
+        <div class="day-card" data-day="tuesday">
+          <div class="day-name">Tue</div>
+          <div class="day-date" id="tue-date"></div>
+          <div class="day-count" id="tue-count">0</div>
+          <div class="day-target" id="tue-target">🎯</div>
+        </div>
+        <div class="day-card" data-day="wednesday">
+          <div class="day-name">Wed</div>
+          <div class="day-date" id="wed-date"></div>
+          <div class="day-count" id="wed-count">0</div>
+          <div class="day-target" id="wed-target">🎯</div>
+        </div>
+        <div class="day-card" data-day="thursday">
+          <div class="day-name">Thu</div>
+          <div class="day-date" id="thu-date"></div>
+          <div class="day-count" id="thu-count">0</div>
+          <div class="day-target" id="thu-target">🎯</div>
+        </div>
+        <div class="day-card" data-day="friday">
+          <div class="day-name">Fri</div>
+          <div class="day-date" id="fri-date"></div>
+          <div class="day-count" id="fri-count">0</div>
+          <div class="day-target" id="fri-target">🎯</div>
+        </div>
+      </div>
+
+      <div class="week-summary">
+        <div class="summary-item">
+          <span>Weekly Total:</span>
+          <span id="weeklyTotal">0</span>
+        </div>
+        <div class="summary-item"> 
+          <span>Weekly Target:</span>
+          <span id="weeklyTarget">50</span>
+        </div> 
+        <div class="summary-item"> 
+          <span>Days Completed:</span>
+          <span id="daysCompleted">0/5</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>
 
       <!-- Celebration Modal -->
       <div class="celebration-modal" id="celebrationModal">

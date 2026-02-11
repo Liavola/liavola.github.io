@@ -552,6 +552,11 @@ main {
   background: rgba(66, 71, 158, 0.1);
 }
 
+.day-card.future-day {
+  opacity: 0.5;
+  background: rgba(189, 195, 199, 0.2);
+}
+
 .day-name {
   font: bold 14px/1 inherit;
   color: #7f8c8d;
@@ -730,6 +735,126 @@ main {
   transform: scale(1.1);
 }
 
+/* Week Navigation */
+.week-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: rgba(66, 71, 158, 0.1);
+  border-radius: 12px;
+}
+
+.week-info {
+  text-align: center;
+  flex: 1;
+}
+
+.week-info h3 {
+  color: #2c3e50;
+  margin: 0 0 5px 0;
+  font-size: 18px;
+}
+
+.week-info #weekNumber {
+  display: block;
+  color: #7f8c8d;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Date range styling - NEW */
+.date-range {
+  display: block;
+  font-size: 0.85rem;
+  color: #95a5a6;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+/* Go to Current Week button - NEW */
+.go-to-current-btn {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #42479e, #5a5fb8);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(66, 71, 158, 0.3);
+}
+
+.go-to-current-btn:hover {
+  background: linear-gradient(135deg, #363a82, #42479e);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(66, 71, 158, 0.4);
+}
+
+.go-to-current-btn:active {
+  transform: translateY(0);
+}
+
+.nav-week-btn {
+  background: #42479e;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-week-btn:hover {
+  background: #6063a9;
+  transform: scale(1.1);
+}
+
+.nav-week-btn:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+  transform: scale(1);
+}
+
+/* Update week grid for 5 days */
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+@media (max-width: 768px) {
+  .week-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .week-navigation {
+    padding: 10px;
+  }
+  
+  .nav-week-btn {
+    width: 35px;
+    height: 35px;
+    font-size: 20px;
+  }
+
+  .go-to-current-btn {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+}
+
 /* Mobile adjustments */
 @media (max-width: 768px) {
   .count-input {
@@ -772,7 +897,7 @@ main {
 
   .logo-icon {
     display: block;
-    height: 80px; /* Slightly smaller than full logo */
+    height: 80px;
     width: auto;
   }
 }
