@@ -58,10 +58,16 @@
           </div>
         </div>
 
+        <div class="pyro">
+    <div class="before"></div>
+    <div class="after"></div>
+</div>
+
         <div id="countersContainer" class="counters-container">
           <!-- Counters dynamically added here -->
         </div>
       </main>
+      
 
       <aside class="settings-panel" id="settingsPanel">
         <div class="settings-content">
@@ -287,23 +293,51 @@
           <span id="daysCompleted">0/5</span>
         </div>
       </div>
+
+<div class="personal-best-section">
+  <h3>🏆 Personal Best</h3>
+  <div class="personal-best-card">
+    <div class="best-count">
+      <span class="best-label">Highest Daily Count:</span>
+      <span class="best-number" id="personalBestCount">0</span>
+    </div>
+    <div class="best-date">
+      <span id="personalBestDate">No record yet</span>
+    </div>
+  </div>
+</div>
     </div>
   </div>
 </aside>
 
       <!-- Celebration Modal -->
-      <div class="celebration-modal" id="celebrationModal">
-        <div class="celebration-content">
-          <div class="celebration-gif">
-            <img id="celebrationImage" src="" alt="Celebration!" />
-          </div>
-          <h2>🎉 Daily Target Achieved! 🎉</h2>
-          <p>Great job! You've reached your daily goal!</p>
-          <button id="closeCelebrationBtn" class="primary-btn">Awesome!</button>
+    <div class="celebration-modal" id="celebrationModal">
+      <div class="celebration-content">
+        <div class="celebration-gif">
+          <img id="celebrationImage" src="" alt="Celebration!" />
         </div>
+        <h2>🎉 Daily Target Achieved! 🎉</h2>
+        <p>Great job! You've reached your daily goal!</p>
+        <button id="closeCelebrationBtn" class="primary-btn">Awesome!</button>
       </div>
-      </div> 
     </div>
-    <script src="index.js"></script>
-  </body>
+
+    <div class="celebration-modal" id="personalBestModal">
+      <div class="celebration-content personal-best-content">
+        <div class="trophy-animation">🏆</div>
+        <h2 id="newRecordText">New Personal Best! 🎉</h2>
+        <p>You've set a new personal record!</p>
+        <button id="closePersonalBestBtn" class="primary-btn">Amazing!</button>
+      </div>
+    </div>
+
+    <!-- Pyro Fireworks - Moved to end of body -->
+    <div class="pyro">
+      <div class="before"></div>
+      <div class="after"></div>
+    </div>
+
+  </div> <!-- End of app-wrapper -->
+  <script src="index.js"></script>
+</body>
 </html>
