@@ -396,7 +396,7 @@ class CounterApp {
       // Alleen celebration tonen als:
       // 1. Er een vorig record was (oldBest > 0)
       // 2. We hebben nog niet gecelebreerd voor exact dit record op deze dag
-      const celebrationKey = `${today}-${totalToday}`;
+      const celebrationKey = today;
 
       if (oldBest > 0 && this.lastPersonalBestCelebration !== celebrationKey) {
         this.lastPersonalBestCelebration = celebrationKey;
