@@ -381,26 +381,29 @@ class CounterApp {
 
   updatePersonalBest() {
     const today = this.getCurrentDayKey();
-    const totalToday = this.counters.reduce((sum, counter) => sum + counter.count, 0);
 
-    // Check of we een nieuw persoonlijk record hebben
-    if (totalToday > this.personalBest) {
-      const oldBest = this.personalBest;
-      this.personalBest = totalToday;
-      this.personalBestDate = today;
+    // Recalculate from all historical daily data (weeklyProgress is already updated before this is called)
+    const entries = Object.entries(this.weeklyProgress);
+    const maxCount = entries.length > 0 ? Math.max(...entries.map(([, v]) => v)) : 0;
+    const maxDate = entries.find(([, v]) => v === maxCount)?.[0] || today;
 
-      // Update display
+    const oldBest = this.personalBest;
+
+    if (maxCount !== this.personalBest) {
+      this.personalBest = maxCount;
+      this.personalBestDate = maxDate;
+
       document.getElementById('personalBestCount').textContent = this.personalBest;
-      document.getElementById('personalBestDate').textContent = this.formatDateDisplay(new Date(today));
+      document.getElementById('personalBestDate').textContent =
+        maxCount > 0 ? this.formatDateDisplay(new Date(maxDate)) : 'No record yet';
+    }
 
-      // Alleen celebration tonen als:
-      // 1. Er een vorig record was (oldBest > 0)
-      // 2. We hebben nog niet gecelebreerd voor exact dit record op deze dag
+    // Show celebration only when a new record is set today, once per day
+    if (maxCount > oldBest && oldBest > 0) {
       const celebrationKey = today;
-
-      if (oldBest > 0 && this.lastPersonalBestCelebration !== celebrationKey) {
+      if (this.lastPersonalBestCelebration !== celebrationKey) {
         this.lastPersonalBestCelebration = celebrationKey;
-        this.showPersonalBestCelebration(totalToday);
+        this.showPersonalBestCelebration(maxCount);
         this.audioFeedback.playCelebration();
         this.saveProgress();
       }
