@@ -1,0 +1,130 @@
+/* Switch to icon-only logo at 1200px */
+@media (max-width: 1200px) {
+  main {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .logo-full {
+    display: none;
+  }
+
+  .logo-icon {
+    display: block;
+    height: 80px;
+    width: auto;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  /* Header */
+  .sticky-header {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 15px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(45, 8, 8, 0.2);
+  }
+
+  .logo-section {
+    justify-content: center;
+  }
+
+  .logo {
+    display: none;
+  }
+
+  .center-controls,
+  .header-controls {
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .settings-btn {
+    font-size: 12px;
+    padding: 8px 16px;
+  }
+
+  /* Counters */
+  .counters-container {
+    grid-template-columns: 1fr;
+  }
+
+  .counter-controls {
+    gap: 15px;
+  }
+
+  .counter-btn {
+    width: 40px;
+    height: 50px;
+    font-size: 20px;
+  }
+
+  .count-display {
+    font-size: 60px;
+    padding: 5px;
+    min-width: 100px;
+  }
+
+  .count-input {
+    font-size: 60px;
+    padding: 5px;
+    min-width: 100px;
+  }
+
+  /* Settings panel */
+  .settings-panel {
+    width: 100vw;
+    right: -100vw;
+  }
+
+  .image-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Progress panel */
+  .progress-panel {
+    width: 100vw;
+    right: -100vw;
+  }
+
+  .week-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .week-navigation {
+    padding: 10px;
+  }
+
+  .nav-week-btn {
+    width: 35px;
+    height: 35px;
+    font-size: 20px;
+  }
+
+  .go-to-current-btn {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+
+  /* Personal best */
+  .personal-best-section {
+    padding: 20px;
+  }
+
+  .best-number {
+    font-size: 36px;
+  }
+
+  .trophy-animation {
+    font-size: 80px;
+  }
+
+  /* Logo icon size on mobile */
+  .logo-icon {
+    height: 60px;
+  }
+}
