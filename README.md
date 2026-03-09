@@ -1,3 +1,5 @@
 # simple_counter_improved
-A simple counter created by moi 
-ye
+
+A simple counter created by moi
+enjoy
+!

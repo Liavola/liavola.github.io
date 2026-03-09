@@ -122,7 +122,9 @@
   cursor: pointer;
   padding: 5px;
   border-radius: 8px;
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
 }
 .count-display:hover {
   background: rgba(66, 71, 158, 0.1);
@@ -593,6 +595,328 @@
 .summary-item span:last-child {
   font-weight: bold;
   color: #2c3e50;
+}
+
+/* ── Counter Selected (keyboard active) ──────────────────────────────────── */
+
+.counter.counter-selected {
+  /* No border or color change — stays theme-neutral */
+}
+
+.counter-keyboard-hint {
+  text-align: center;
+  font-size: 11px;
+  color: #7f8c8d;
+  margin-top: 10px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  letter-spacing: 0.3px;
+}
+
+.counter.counter-selected .counter-keyboard-hint {
+  opacity: 1;
+}
+
+/* ── Progress View Tabs ───────────────────────────────────────────────────── */
+
+.progress-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  background: rgba(66, 71, 158, 0.08);
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.progress-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7f8c8d;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.progress-tab.active {
+  background: #42479e;
+  color: white;
+  box-shadow: 0 2px 6px rgba(66, 71, 158, 0.3);
+}
+
+.progress-tab:hover:not(.active) {
+  background: rgba(66, 71, 158, 0.12);
+  color: #42479e;
+}
+
+/* ── Day Breakdown (per-counter in week view) ─────────────────────────────── */
+
+.day-breakdown {
+  font-size: 10px;
+  color: #7f8c8d;
+  margin: 3px 0;
+  line-height: 1.5;
+}
+
+.breakdown-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Day Note Area ────────────────────────────────────────────────────────── */
+
+.day-note-area {
+  margin-top: 6px;
+  min-height: 18px;
+}
+
+.day-note-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #d5d8dc;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color 0.2s;
+  line-height: 1;
+  font-family: inherit;
+}
+
+.day-note-btn:hover {
+  color: #42479e;
+}
+
+.day-note-text {
+  font-size: 10px;
+  color: #7f8c8d;
+  font-style: italic;
+  cursor: pointer;
+  line-height: 1.3;
+  word-break: break-word;
+  transition: color 0.2s;
+}
+
+.day-note-text:hover {
+  color: #42479e;
+}
+
+.day-note-input {
+  width: 100%;
+  font-size: 10px;
+  border: 1px solid #42479e;
+  border-radius: 4px;
+  padding: 4px;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+  min-height: 42px;
+  color: #2c3e50;
+  box-sizing: border-box;
+}
+
+/* ── Month View ───────────────────────────────────────────────────────────── */
+
+.month-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 14px;
+  background: rgba(66, 71, 158, 0.1);
+  border-radius: 12px;
+}
+
+.month-info {
+  text-align: center;
+  flex: 1;
+}
+
+.month-info h3 {
+  color: #2c3e50;
+  margin: 0;
+  font-size: 18px;
+}
+
+.month-calendar {
+  padding: 0;
+}
+
+.month-col-headers {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.month-col-header {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7f8c8d;
+  padding: 4px 2px;
+}
+
+.month-week-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.month-day-cell {
+  border-radius: 8px;
+  padding: 6px 4px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.month-day-cell.outside-month {
+  background: transparent;
+  box-shadow: none;
+}
+
+.month-day-cell.future-day {
+  opacity: 0.4;
+}
+
+.month-day-cell.today {
+  border-color: #42479e;
+  background: rgba(66, 71, 158, 0.12);
+}
+
+.month-day-cell.target-met {
+  border-color: #27ae60;
+  background: rgba(39, 174, 96, 0.12);
+}
+
+.month-cell-date {
+  font-size: 11px;
+  color: #95a5a6;
+  margin-bottom: 3px;
+}
+
+.month-cell-count {
+  font-size: 15px;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.month-day-cell.target-met .month-cell-count {
+  color: #27ae60;
+}
+
+.month-day-cell.today .month-cell-date,
+.month-day-cell.today .month-cell-count {
+  color: #42479e;
+}
+
+/* ── Averages View ────────────────────────────────────────────────────────── */
+
+.averages-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.avg-card {
+  background: rgba(66, 71, 158, 0.08);
+  border-radius: 10px;
+  padding: 14px 8px;
+  text-align: center;
+}
+
+.avg-label {
+  font-size: 11px;
+  color: #7f8c8d;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.avg-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 4px;
+}
+
+.avg-sub {
+  font-size: 10px;
+  color: #95a5a6;
+}
+
+.weekly-breakdown-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #2c3e50;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.weekly-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.breakdown-week-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border: 1px solid transparent;
+}
+
+.breakdown-week-row.current-week-row {
+  background: rgba(66, 71, 158, 0.08);
+  border-color: rgba(66, 71, 158, 0.25);
+}
+
+.breakdown-week-label {
+  font-size: 13px;
+  color: #7f8c8d;
+}
+
+.breakdown-week-avg {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.avg-number {
+  font-size: 18px;
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.avg-days {
+  font-size: 11px;
+  color: #95a5a6;
+}
+
+.no-data {
+  text-align: center;
+  color: #7f8c8d;
+  font-style: italic;
+  padding: 30px 20px;
 }
 
 /* ── Personal Best ────────────────────────────────────────────────────────── */
