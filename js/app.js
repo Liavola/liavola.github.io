@@ -887,7 +887,7 @@ export class CounterApp {
           date.getMonth() === month && date.getFullYear() === year;
         const isFuture = date > today;
         const isToday = this.isToday(date);
-        const dateKey = this.formatDate(date);
+        const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
         const count = this.getDayTotal(dateKey);
         const targetMet = count >= this.dailyTarget && count > 0;
 
