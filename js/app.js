@@ -757,7 +757,7 @@ export class CounterApp {
               this.editDayNote(dateKey, noteArea),
             );
         } else if (!isFuture) {
-          noteArea.innerHTML = `<button class="day-note-btn" title="Add note">✏</button>`;
+          noteArea.innerHTML = `<button class="day-note-btn" title="Add note">+ Add note</button>`;
           noteArea
             .querySelector(".day-note-btn")
             .addEventListener("click", () =>

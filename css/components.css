@@ -677,19 +677,24 @@
 
 .day-note-btn {
   background: none;
-  border: none;
+  border: 1px dashed #b0b8c1;
   cursor: pointer;
-  font-size: 12px;
-  color: #d5d8dc;
-  padding: 2px 4px;
-  border-radius: 3px;
-  transition: color 0.2s;
-  line-height: 1;
+  font-size: 11px;
+  color: #7f8c8d;
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  line-height: 1.4;
   font-family: inherit;
+  width: 100%;
+  text-align: center;
+  margin-top: 2px;
 }
 
 .day-note-btn:hover {
   color: #42479e;
+  border-color: #42479e;
+  background: rgba(66, 71, 158, 0.05);
 }
 
 .day-note-text {
