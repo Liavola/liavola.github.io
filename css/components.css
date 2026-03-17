@@ -166,6 +166,7 @@
   transition: right 0.3s ease;
   z-index: 1000;
   overflow-y: auto;
+  color: #2c3e50;
 }
 .settings-panel.open {
   right: 0;
@@ -412,6 +413,7 @@
   transition: right 0.3s ease;
   z-index: 1000;
   overflow-y: auto;
+  color: #2c3e50;
 }
 .progress-panel.open {
   right: 0;
@@ -1042,4 +1044,250 @@
   font-size: 100px;
   animation: trophyBounce 1s ease infinite;
   margin-bottom: 20px;
+}
+
+/* ── Leaderboard Panel ─────────────────────────────────────────────────────── */
+
+.leaderboard-panel {
+  position: fixed;
+  top: 0;
+  right: -420px;
+  width: 420px;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: -5px 0 20px rgba(0, 0, 0, 0.1);
+  transition: right 0.3s ease;
+  z-index: 1000;
+  overflow-y: auto;
+  color: #2c3e50;
+}
+.leaderboard-panel.open {
+  right: 0;
+}
+
+.leaderboard-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid rgba(66, 71, 158, 0.1);
+}
+
+.leaderboard-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.leaderboard-tab {
+  flex: 1;
+  padding: 8px;
+  border: 2px solid rgba(66, 71, 158, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+.leaderboard-tab.active {
+  background: #42479e;
+  color: white;
+  border-color: #42479e;
+}
+
+.leaderboard-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(66, 71, 158, 0.05);
+  border: 1px solid rgba(66, 71, 158, 0.1);
+}
+.leaderboard-row.leaderboard-me {
+  background: rgba(66, 71, 158, 0.12);
+  border-color: rgba(66, 71, 158, 0.35);
+}
+
+.lb-rank {
+  font-size: 18px;
+  min-width: 28px;
+  text-align: center;
+  font-weight: bold;
+  color: #555;
+}
+
+.lb-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.lb-name {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-bar-wrap {
+  height: 5px;
+  background: rgba(66, 71, 158, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.lb-bar {
+  height: 100%;
+  background: #42479e;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+
+.lb-score {
+  font-size: 20px;
+  font-weight: bold;
+  color: #42479e;
+  min-width: 36px;
+  text-align: right;
+}
+
+.leaderboard-row-week {
+  align-items: flex-start;
+}
+
+.lb-name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.lb-score-inline {
+  font-size: 15px;
+  font-weight: bold;
+  color: #42479e;
+}
+
+.lb-week-grid {
+  display: flex;
+  gap: 6px;
+}
+
+.lb-day-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.lb-day-bar-wrap {
+  width: 100%;
+  height: 32px;
+  background: rgba(66, 71, 158, 0.1);
+  border-radius: 3px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.lb-day-bar {
+  width: 100%;
+  background: #42479e;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height 0.3s ease;
+}
+
+.lb-day-cell.lb-day-today .lb-day-bar {
+  background: #e67e22;
+}
+
+.lb-day-cell.lb-day-today .lb-day-label {
+  color: #e67e22;
+  font-weight: bold;
+}
+
+.lb-day-count {
+  font-size: 11px;
+  color: #555;
+}
+
+.lb-day-label {
+  font-size: 10px;
+  color: #999;
+  text-transform: uppercase;
+}
+
+.leaderboard-empty {
+  text-align: center;
+  color: #888;
+  font-size: 14px;
+  padding: 30px 10px;
+  line-height: 1.6;
+}
+
+.leaderboard-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 14px;
+  margin-top: 10px;
+  border-top: 1px solid rgba(66, 71, 158, 0.1);
+}
+
+.leaderboard-timestamp {
+  font-size: 12px;
+  color: #999;
+}
+
+/* ── Leaderboard Settings fields ───────────────────────────────────────────── */
+
+.leaderboard-optin-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #42479e;
+}
+
+.sync-status {
+  font-size: 12px;
+  color: #27ae60;
+  margin-left: auto;
 }

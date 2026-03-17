@@ -1,4 +1,5 @@
 import { AudioFeedback } from "./audio.js";
+import { pushScore, fetchLeaderboard, isConfigured } from "./leaderboard.js";
 
 export class CounterApp {
   constructor() {
@@ -22,6 +23,12 @@ export class CounterApp {
     this.selectedCounterId = null;
     this.progressView = "week";
     this.currentMonthOffset = 0;
+
+    // Leaderboard state
+    this.displayName = "";
+    this.leaderboardEnabled = false;
+    this.leaderboardView = "today";
+    this.leaderboardSyncTimeout = null;
 
     this.celebrationGifs = [
       "https://media.giphy.com/media/3oz8xAFtqoOUUrsh7W/giphy.gif",
@@ -113,6 +120,19 @@ export class CounterApp {
     document.querySelectorAll(".progress-tab").forEach((tab) => {
       tab.addEventListener("click", () =>
         this.switchProgressView(tab.dataset.view),
+      );
+    });
+
+    // Leaderboard
+    bind("toggleLeaderboardBtn", "click", () => this.toggleLeaderboard());
+    bind("closeLeaderboardBtn", "click", () => this.closeLeaderboard());
+    bind("refreshLeaderboardBtn", "click", () => this.loadLeaderboardData());
+    bind("leaderboardDisplayName", "input", (e) => this.updateDisplayName(e));
+    bind("leaderboardOptIn", "change", (e) => this.toggleLeaderboardOptIn(e));
+
+    document.querySelectorAll(".leaderboard-tab").forEach((tab) => {
+      tab.addEventListener("click", () =>
+        this.switchLeaderboardView(tab.dataset.lview),
       );
     });
 
@@ -535,6 +555,7 @@ export class CounterApp {
     this.updatePersonalBest();
     this.updateWeeklyView();
     this.saveProgress();
+    this.scheduleSyncToLeaderboard();
   }
 
   updatePersonalBest() {
@@ -1337,6 +1358,8 @@ export class CounterApp {
       dailyTarget: this.dailyTarget,
       audioEnabled: this.audioFeedback.isEnabled(),
       audioVolume: this.audioFeedback.volume,
+      displayName: this.displayName,
+      leaderboardEnabled: this.leaderboardEnabled,
     };
     localStorage.setItem("counterAppSettings", JSON.stringify(settings));
   }
@@ -1425,6 +1448,18 @@ export class CounterApp {
       const volumeControl = document.getElementById("volumeControl");
       if (volumeControl) volumeControl.value = settings.audioVolume * 100;
     }
+
+    if (settings.displayName) {
+      this.displayName = settings.displayName;
+      const nameInput = document.getElementById("leaderboardDisplayName");
+      if (nameInput) nameInput.value = settings.displayName;
+    }
+
+    if (settings.leaderboardEnabled !== undefined) {
+      this.leaderboardEnabled = settings.leaderboardEnabled;
+      const checkbox = document.getElementById("leaderboardOptIn");
+      if (checkbox) checkbox.checked = settings.leaderboardEnabled;
+    }
   }
 
   saveProgress() {
@@ -1469,5 +1504,196 @@ export class CounterApp {
     );
     document.getElementById("personalBestSection").style.display =
       anyDayCompleted ? "" : "none";
+  }
+
+  // ─── Leaderboard ──────────────────────────────────────────────────────────
+
+  updateDisplayName(e) {
+    this.displayName = e.target.value.trim();
+    this.saveSettings();
+  }
+
+  toggleLeaderboardOptIn(e) {
+    this.leaderboardEnabled = e.target.checked;
+    this.saveSettings();
+
+    if (this.leaderboardEnabled && this.displayName) {
+      this.syncToLeaderboard();
+    }
+  }
+
+  toggleLeaderboard() {
+    const panel = document.getElementById("leaderboardPanel");
+    panel.classList.toggle("open");
+    if (panel.classList.contains("open")) {
+      this.loadLeaderboardData();
+    }
+  }
+
+  closeLeaderboard() {
+    document.getElementById("leaderboardPanel").classList.remove("open");
+  }
+
+  switchLeaderboardView(view) {
+    this.leaderboardView = view;
+    document.querySelectorAll(".leaderboard-tab").forEach((tab) => {
+      tab.classList.toggle("active", tab.dataset.lview === view);
+    });
+    // Re-render with cached data if available
+    if (this._leaderboardCache) {
+      this.renderLeaderboardData(this._leaderboardCache);
+    }
+  }
+
+  scheduleSyncToLeaderboard() {
+    if (!this.leaderboardEnabled || !this.displayName) return;
+    clearTimeout(this.leaderboardSyncTimeout);
+    this.leaderboardSyncTimeout = setTimeout(
+      () => this.syncToLeaderboard(),
+      3000,
+    );
+  }
+
+  async syncToLeaderboard() {
+    if (!this.leaderboardEnabled || !this.displayName) return;
+    const today = this.getCurrentDayKey();
+    const total = this.getDayTotal(today);
+    await pushScore(this.displayName, today, total);
+
+    const status = document.getElementById("leaderboardSyncStatus");
+    if (status) {
+      const time = new Date().toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      status.textContent = `Synced ${time}`;
+    }
+  }
+
+  async loadLeaderboardData() {
+    const listEl = document.getElementById("leaderboardList");
+    if (!listEl) return;
+
+    if (!isConfigured()) {
+      listEl.innerHTML =
+        '<p class="leaderboard-empty">Firebase not configured yet.<br>Fill in the config in <code>js/leaderboard.js</code>.</p>';
+      return;
+    }
+
+    listEl.innerHTML = '<p class="leaderboard-empty">Loading…</p>';
+
+    const data = await fetchLeaderboard();
+
+    if (data === null) {
+      listEl.innerHTML =
+        '<p class="leaderboard-empty">Could not load data. Check your Firebase config.</p>';
+      return;
+    }
+
+    if (Object.keys(data).length === 0) {
+      listEl.innerHTML =
+        '<p class="leaderboard-empty">No data yet. Be the first to opt in!</p>';
+      return;
+    }
+
+    this._leaderboardCache = data;
+    this.renderLeaderboardData(data);
+
+    const ts = document.getElementById("leaderboardLastUpdated");
+    if (ts) {
+      ts.textContent = new Date().toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+  }
+
+  renderLeaderboardData(data) {
+    const listEl = document.getElementById("leaderboardList");
+    if (!listEl) return;
+
+    const today = this.getCurrentDayKey();
+    const weekDays = this._getThisWeekDays();
+    const isToday = this.leaderboardView === "today";
+    const myName = this.displayName.trim();
+
+    // Build scored entries
+    const entries = Object.entries(data).map(([name, days]) => {
+      const todayScore = days[today] || 0;
+      const dayCounts = weekDays.map((d) => days[d] || 0);
+      const weekScore = dayCounts.reduce((sum, c) => sum + c, 0);
+      return { name, todayScore, weekScore, dayCounts };
+    });
+
+    entries.sort((a, b) =>
+      isToday ? b.todayScore - a.todayScore : b.weekScore - a.weekScore,
+    );
+
+    const maxScore = isToday
+      ? Math.max(...entries.map((e) => e.todayScore), 1)
+      : Math.max(...entries.map((e) => e.weekScore), 1);
+
+    const dayLabels = ["M", "T", "W", "T", "F"];
+    const todayIndex = new Date().getDay() - 1; // 0=Mon … 4=Fri, -1/5 = weekend
+
+    let html = "";
+    entries.forEach((entry, i) => {
+      const score = isToday ? entry.todayScore : entry.weekScore;
+      const pct = Math.round((score / maxScore) * 100);
+      const isMe = entry.name === myName;
+      const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "";
+
+      if (isToday) {
+        html += `
+          <div class="leaderboard-row${isMe ? " leaderboard-me" : ""}">
+            <div class="lb-rank">${medal || i + 1}</div>
+            <div class="lb-info">
+              <div class="lb-name">${entry.name}${isMe ? " (you)" : ""}</div>
+              <div class="lb-bar-wrap">
+                <div class="lb-bar" style="width:${pct}%"></div>
+              </div>
+            </div>
+            <div class="lb-score">${score}</div>
+          </div>`;
+      } else {
+        const maxDay = Math.max(...entry.dayCounts, 1);
+        const dayGrid = dayLabels.map((label, di) => {
+          const count = entry.dayCounts[di];
+          const barPct = Math.round((count / maxDay) * 100);
+          const isCurrentDay = di === todayIndex;
+          return `
+            <div class="lb-day-cell${isCurrentDay ? " lb-day-today" : ""}">
+              <div class="lb-day-bar-wrap">
+                <div class="lb-day-bar" style="height:${barPct}%"></div>
+              </div>
+              <div class="lb-day-count">${count > 0 ? count : "–"}</div>
+              <div class="lb-day-label">${label}</div>
+            </div>`;
+        }).join("");
+
+        html += `
+          <div class="leaderboard-row leaderboard-row-week${isMe ? " leaderboard-me" : ""}">
+            <div class="lb-rank">${medal || i + 1}</div>
+            <div class="lb-info">
+              <div class="lb-name-row">
+                <span class="lb-name">${entry.name}${isMe ? " (you)" : ""}</span>
+                <span class="lb-score-inline">${score}</span>
+              </div>
+              <div class="lb-week-grid">${dayGrid}</div>
+            </div>
+          </div>`;
+      }
+    });
+
+    listEl.innerHTML = html;
+  }
+
+  _getThisWeekDays() {
+    const monday = this.getMonday(new Date());
+    return Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return this.formatDate(d);
+    });
   }
 }

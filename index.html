@@ -55,6 +55,9 @@
             <button id="toggleProgressBtnHeader" class="secondary-btn">
               📊 Progress
             </button>
+            <button id="toggleLeaderboardBtn" class="secondary-btn">
+              🏆 Team
+            </button>
             <button id="toggleSettingsBtn" class="settings-btn secondary-btn">
               ⚙️ Settings
             </button>
@@ -86,6 +89,28 @@
             <button id="toggleProgressBtn" class="secondary-btn">
               📊 View Progress
             </button>
+          </div>
+
+          <div class="settings-sub-header">
+            <h4>Team Leaderboard</h4>
+          </div>
+
+          <div class="input-group">
+            <label>Your Display Name:</label>
+            <input
+              type="text"
+              id="leaderboardDisplayName"
+              maxlength="20"
+              placeholder="e.g. Alice"
+            />
+          </div>
+
+          <div class="input-group leaderboard-optin-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="leaderboardOptIn" />
+              Share my counts with the team
+            </label>
+            <span id="leaderboardSyncStatus" class="sync-status"></span>
           </div>
 
           <div class="input-group">
@@ -353,6 +378,30 @@
           <!-- Averages View -->
           <div id="averagesView" style="display: none">
             <div id="averagesSummary"></div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Leaderboard Panel -->
+      <aside class="leaderboard-panel" id="leaderboardPanel">
+        <div class="leaderboard-content">
+          <div class="leaderboard-header">
+            <h2>🏆 Team</h2>
+            <button id="closeLeaderboardBtn" class="close-btn">×</button>
+          </div>
+
+          <div class="leaderboard-tabs">
+            <button class="leaderboard-tab active" data-lview="today">Today</button>
+            <button class="leaderboard-tab" data-lview="week">This Week</button>
+          </div>
+
+          <div id="leaderboardList" class="leaderboard-list">
+            <p class="leaderboard-empty">Open settings to set your name and opt in.</p>
+          </div>
+
+          <div class="leaderboard-footer">
+            <button id="refreshLeaderboardBtn" class="secondary-btn">↻ Refresh</button>
+            <span id="leaderboardLastUpdated" class="leaderboard-timestamp"></span>
           </div>
         </div>
       </aside>
