@@ -52,6 +52,7 @@ export class CounterApp {
     this.loadCounters();
     this.loadSettings();
     this.loadProgress();
+    this.checkDayRollover();
     this.initializeWeeklyView();
     this.setupFontDropdown();
     if (this.counters.length === 0) this.addCounter();
@@ -489,6 +490,17 @@ export class CounterApp {
   }
 
   // ─── Progress Tracking ────────────────────────────────────────────────────
+
+  checkDayRollover() {
+    const today = this.getCurrentDayKey();
+    if (!this.weeklyProgress[today] && this.counters.some((c) => c.count > 0)) {
+      this.counters.forEach((c) => {
+        c.count = 0;
+        this.updateCounterDisplay(c.id, 0);
+      });
+      this.saveCounters();
+    }
+  }
 
   getCurrentDayKey() {
     return this.formatDate(new Date());
