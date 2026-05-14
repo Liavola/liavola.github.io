@@ -54,14 +54,15 @@ function sanitizeKey(name) {
  * Push today's score for a user.
  * @param {string} name - Display name
  * @param {string} dateKey - YYYY-MM-DD
- * @param {number} total - Score for that day
+ * @param {number|object} payload - Either a plain total number (legacy) or an
+ *   object like { _total: 145, CID: 36, SINGLES: 89, ICM: 20 }
  */
-export async function pushScore(name, dateKey, total) {
+export async function pushScore(name, dateKey, payload) {
   if (!isConfigured()) return;
   try {
     const db = getDb();
     const key = sanitizeKey(name);
-    await set(ref(db, `leaderboard/${key}/${dateKey}`), total);
+    await set(ref(db, `leaderboard/${key}/${dateKey}`), payload);
   } catch (err) {
     console.warn("[Leaderboard] sync failed:", err.message);
   }

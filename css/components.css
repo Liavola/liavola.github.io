@@ -685,7 +685,10 @@
   color: #7f8c8d;
   padding: 3px 8px;
   border-radius: 4px;
-  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
   line-height: 1.4;
   font-family: inherit;
   width: 100%;
@@ -1290,4 +1293,144 @@
   font-size: 12px;
   color: #27ae60;
   margin-left: auto;
+}
+
+/* ── Daily Task Progress Bar (fixed at very top of page) ────────────────────── */
+
+/* Outer wrapper — frosted-glass, fully transparent background.
+   backdrop-filter handles readability over any page background.
+   z-index 990: above content but below side-panels (1000) and modals (2000). */
+.day-progress-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 990;
+}
+
+.day-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.day-progress-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.day-progress-pct {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+/* Single horizontal stacked bar — remaining work shows as the rail background */
+.day-progress-bar {
+  height: 28px;
+  display: flex;
+  border-radius: 7px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+  position: relative;
+}
+
+/* Each coloured segment: width = task's hour-contribution / 6 hours */
+.dp-seg {
+  height: 100%;
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+/* Milestone label overlaid on the bar */
+.dp-bar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  letter-spacing: 0.3px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.dp-bar-label.visible {
+  opacity: 1;
+}
+
+/* Legend — coloured pill chips, one per task type */
+.day-progress-legend {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+  flex-wrap: wrap;
+}
+
+.dp-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.2px;
+  opacity: 0.92;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Leaderboard stacked bar ───────────────────────────────────────────────── */
+
+.lb-stacked-bar {
+  display: flex;
+  height: 7px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(66, 71, 158, 0.1);
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.lb-stacked-segment {
+  position: relative;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  border-radius: 3px;
+}
+
+.lb-stacked-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.lb-task-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.lb-task-chip {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.lb-completion-pct {
+  font-size: 12px;
+  color: #888;
+  margin-left: 4px;
 }

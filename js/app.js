@@ -1,6 +1,27 @@
 import { AudioFeedback } from "./audio.js";
 import { pushScore, fetchLeaderboard, isConfigured } from "./leaderboard.js";
 
+// ─── Task Definitions ─────────────────────────────────────────────────────────
+// Each recognized task type with its name patterns and daily targets.
+// ICM is a half-day task (morning only); others fill a full day.
+const TASK_DEFINITIONS = {
+  CID: {
+    patterns: ["cid"],
+    fullDayTarget: 36,
+    color: "#182c9b",
+  },
+  SINGLES: {
+    patterns: ["singles", "enkelvoudig", "enkel", "enkelvoudige", "single"],
+    fullDayTarget: 100,
+    color: "#85c5f0",
+  },
+  ICM: {
+    patterns: ["icm"],
+    halfDayTarget: 100, // occupies the morning (half a day)
+    color: "#eed04a",
+  },
+};
+
 export class CounterApp {
   constructor() {
     this.counters = [];
@@ -58,6 +79,7 @@ export class CounterApp {
     if (this.counters.length === 0) this.addCounter();
     // Auto-select first counter for keyboard use
     if (this.counters.length > 0) this.selectCounter(this.counters[0].id);
+    this.renderProgressBar();
   }
 
   setupFontDropdown() {
@@ -376,6 +398,7 @@ export class CounterApp {
 
       input.replaceWith(newTitle);
       this.saveCounters();
+      this.renderProgressBar();
     };
 
     input.addEventListener("blur", save);
@@ -555,7 +578,11 @@ export class CounterApp {
       note: existingNote,
     };
 
+    // Skip manual target celebration when task-typed counters exist —
+    // the bar's 100% completion handles it instead to avoid double-firing.
+    const hasTaskCounters = Object.keys(this.getTaskBreakdown()).length > 0;
     if (
+      !hasTaskCounters &&
       oldTotal < this.dailyTarget &&
       totalToday >= this.dailyTarget &&
       this.lastCelebrationDate !== today
@@ -566,6 +593,7 @@ export class CounterApp {
 
     this.updatePersonalBest();
     this.updateWeeklyView();
+    this.renderProgressBar();
     this.saveProgress();
     this.scheduleSyncToLeaderboard();
   }
@@ -609,6 +637,190 @@ export class CounterApp {
       parseInt(document.getElementById("dailyTargetInput").value) || 10;
     this.updateWeeklyView();
     this.saveProgress();
+  }
+
+  // ─── Task Recognition & Progress Bar ─────────────────────────────────────────
+
+  /** Match a counter name to one of the known TASK_DEFINITIONS types. */
+  detectTaskType(name) {
+    if (!name) return null;
+    const normalized = name.toLowerCase().trim();
+    for (const [type, def] of Object.entries(TASK_DEFINITIONS)) {
+      if (def.patterns.some((p) => normalized.includes(p))) return type;
+    }
+    return null;
+  }
+
+  /**
+   * Sum current counter counts by task type.
+   * Returns e.g. { CID: 20, SINGLES: 45 } — only types that have a count.
+   */
+  getTaskBreakdown() {
+    const breakdown = {};
+    for (const counter of this.counters) {
+      const type = this.detectTaskType(counter.name);
+      if (type) breakdown[type] = (breakdown[type] || 0) + counter.count;
+    }
+    return breakdown;
+  }
+
+  /**
+   * Compute per-task progress for the stacked bar.
+   *
+   * Logic:
+   *  - ICM takes the morning slot (50% of the workday).
+   *  - Remaining non-ICM types split the other 50% equally.
+   *  - Without ICM, all non-ICM types split 100% equally.
+   *  - Each type's adjusted target = fullDayTarget × its day-fraction.
+   *    (ICM always uses its halfDayTarget = 100.)
+   *
+   * Returns an array of task objects or null when no known tasks present.
+   *
+   * Hour-based formula (6 active working hours per day):
+   *   CID:     1 item = 6/36  bar-hours  (rate: 6/hour,    target 36/day)
+   *   SINGLES: 1 item = 6/100 bar-hours  (rate: 16.67/hour, target 100/day)
+   *   ICM:     hard-capped at 3 bar-hours (= 50 % of bar) regardless of count above 100
+   *
+   * Total bar % = sum of all bar-hours / 6, capped at 100 %.
+   */
+  calculateDayProgress(breakdownOverride) {
+    const breakdown = breakdownOverride || this.getTaskBreakdown();
+    const types = Object.keys(breakdown);
+    if (types.length === 0) return null;
+
+    const HOURS = 6; // active working hours in a full day
+    const ICM_CAP_HOURS = 3; // ICM is a half-day task → caps at 3 bar-hours (50 %)
+
+    const tasks = [];
+    let totalBarHours = 0;
+
+    for (const type of types) {
+      const def = TASK_DEFINITIONS[type];
+      if (!def) continue;
+      const count = breakdown[type];
+
+      let barHours, target;
+      if (type === "ICM") {
+        target = def.halfDayTarget; // 100
+        // ICM contributes proportionally up to 100 items, then hard-capped at 50 %
+        barHours = Math.min((count / target) * ICM_CAP_HOURS, ICM_CAP_HOURS);
+      } else {
+        target = def.fullDayTarget;
+        // Each item = HOURS / target bar-hours (e.g. 1 CID = 6/36 = 0.167 h)
+        barHours = count * (HOURS / target);
+      }
+
+      tasks.push({ type, count, target, barHours, color: def.color });
+      totalBarHours += barHours;
+    }
+
+    if (tasks.length === 0) return null;
+
+    // Cap the total at HOURS; scale all segments proportionally if exceeded
+    const cappedTotal = Math.min(totalBarHours, HOURS);
+    const scale = totalBarHours > 0 ? cappedTotal / totalBarHours : 0;
+
+    return tasks.map((t) => ({
+      ...t,
+      barHours: t.barHours * scale,
+      // barPct: 0–1 fraction of the full bar this task occupies (after capping)
+      barPct: (t.barHours * scale) / HOURS,
+    }));
+  }
+
+  /**
+   * Compute a 0–1 completion score from a task-count object.
+   * Used for ranking leaderboard entries.
+   */
+  computeCompletionFromBreakdown(taskCounts) {
+    const tasks = this.calculateDayProgress(taskCounts);
+    if (!tasks) return 0;
+    // barPcts already sum to ≤ 1.0 after capping inside calculateDayProgress
+    return tasks.reduce((sum, t) => sum + t.barPct, 0);
+  }
+
+  /**
+   * Build and inject the fixed-top stacked progress bar.
+   * One single horizontal bar; each task type's coloured segment width = its barPct.
+   * The gray bar background fills the remaining (unfinished) portion automatically.
+   */
+  renderProgressBar() {
+    const container = document.getElementById("dayProgressContainer");
+    const barEl = document.getElementById("dayProgressBar");
+    const pctEl = document.getElementById("dayProgressPct");
+    const legendEl = document.getElementById("dayProgressLegend");
+    if (!container) return;
+
+    const tasks = this.calculateDayProgress();
+
+    if (!tasks) {
+      container.style.display = "none";
+      document.body.style.paddingTop = "";
+      return;
+    }
+
+    container.style.display = "";
+
+    // Overall completion %
+    const totalPct = Math.round(tasks.reduce((s, t) => s + t.barPct, 0) * 100);
+    if (pctEl) pctEl.textContent = totalPct + "%";
+
+    // Single stacked bar — update segments in-place so CSS width transition fires
+    // (replacing innerHTML kills the transition since new elements have no prior width)
+    const existing = Array.from(barEl.querySelectorAll(".dp-seg"));
+    tasks.forEach((t, i) => {
+      const w = (t.barPct * 100).toFixed(2);
+      let seg = existing[i];
+      if (!seg) {
+        seg = document.createElement("div");
+        seg.className = "dp-seg";
+        // Start at 0 so the width transition animates from nothing on first appear
+        seg.style.width = "0%";
+        seg.style.background = t.color;
+        barEl.appendChild(seg);
+        // Force a reflow so the browser registers the 0% before we set the real width
+        seg.getBoundingClientRect();
+      }
+      seg.style.width = w + "%";
+      seg.style.background = t.color;
+      seg.title = `${t.type}: ${t.count}`;
+    });
+    // Remove any leftover segments if task count shrank
+    for (let i = tasks.length; i < existing.length; i++) existing[i].remove();
+
+    // Milestone label overlay inside the bar
+    let labelEl = barEl.querySelector(".dp-bar-label");
+    if (!labelEl) {
+      labelEl = document.createElement("div");
+      labelEl.className = "dp-bar-label";
+      barEl.appendChild(labelEl);
+    }
+    let milestoneText = "";
+    if (totalPct >= 100) milestoneText = "Daily target reached!";
+    else if (totalPct >= 45 && totalPct <= 55) milestoneText = "Halfway there!";
+    labelEl.textContent = milestoneText;
+    labelEl.classList.toggle("visible", milestoneText !== "");
+
+    // Fire celebration when bar crosses 100% (only for task-based counters)
+    const today = this.getCurrentDayKey();
+    if (totalPct >= 100 && this.lastCelebrationDate !== today) {
+      this.showCelebration();
+      this.lastCelebrationDate = today;
+      this.saveProgress();
+    }
+
+    // Legend: pill chips per task
+    if (legendEl) {
+      legendEl.innerHTML = tasks
+        .map(
+          (t) =>
+            `<span class="dp-legend-chip" style="background:${t.color}">${t.type}&nbsp;${t.count}</span>`,
+        )
+        .join("");
+    }
+
+    // Push page content down so nothing hides behind the fixed bar
+    document.body.style.paddingTop = container.offsetHeight + "px";
   }
 
   navigateWeek(direction) {
@@ -1127,6 +1339,7 @@ export class CounterApp {
     const bgColor = document.getElementById("bgColorInput").value;
     document.body.style.backgroundColor = bgColor;
     this.autoAdjustTextColor(bgColor);
+    this.renderProgressBar(); // re-sync info strip background
     this.saveSettings();
   }
 
@@ -1570,7 +1783,13 @@ export class CounterApp {
     if (!this.leaderboardEnabled || !this.displayName) return;
     const today = this.getCurrentDayKey();
     const total = this.getDayTotal(today);
-    await pushScore(this.displayName, today, total);
+    // Build task-type breakdown from current counters for richer leaderboard display
+    const taskBreakdown = this.getTaskBreakdown();
+    const payload =
+      Object.keys(taskBreakdown).length > 0
+        ? { _total: total, ...taskBreakdown }
+        : total;
+    await pushScore(this.displayName, today, payload);
 
     const status = document.getElementById("leaderboardSyncStatus");
     if (status) {
@@ -1629,51 +1848,105 @@ export class CounterApp {
     const isToday = this.leaderboardView === "today";
     const myName = this.displayName.trim();
 
-    // Build scored entries
+    // Parse a raw Firebase day value (number = legacy, object = new format).
+    const parseDayVal = (val) => {
+      if (typeof val === "number") return { total: val, tasks: {} };
+      if (val && typeof val === "object") {
+        const { _total = 0, ...tasks } = val;
+        return { total: _total, tasks };
+      }
+      return { total: 0, tasks: {} };
+    };
+
+    // Build entries
     const entries = Object.entries(data).map(([name, days]) => {
-      const todayScore = days[today] || 0;
-      const dayCounts = weekDays.map((d) => days[d] || 0);
+      const todayParsed = parseDayVal(days[today]);
+      const todayTotal = todayParsed.total;
+      const todayTasks = todayParsed.tasks;
+      const todayCompletion = this.computeCompletionFromBreakdown(todayTasks);
+      const dayCounts = weekDays.map((d) => parseDayVal(days[d]).total);
       const weekScore = dayCounts.reduce((sum, c) => sum + c, 0);
-      return { name, todayScore, weekScore, dayCounts };
+      return {
+        name,
+        todayTotal,
+        todayTasks,
+        todayCompletion,
+        dayCounts,
+        weekScore,
+      };
     });
 
+    // Sort: today → by completion % (weighted), then raw total as tiebreak; week → raw total
     entries.sort((a, b) =>
-      isToday ? b.todayScore - a.todayScore : b.weekScore - a.weekScore,
+      isToday
+        ? b.todayCompletion - a.todayCompletion || b.todayTotal - a.todayTotal
+        : b.weekScore - a.weekScore,
     );
 
-    const maxScore = isToday
-      ? Math.max(...entries.map((e) => e.todayScore), 1)
-      : Math.max(...entries.map((e) => e.weekScore), 1);
-
     const dayLabels = ["M", "T", "W", "T", "F"];
-    const todayIndex = new Date().getDay() - 1; // 0=Mon … 4=Fri, -1/5 = weekend
+    const todayIndex = new Date().getDay() - 1; // 0=Mon … 4=Fri
 
     let html = "";
     entries.forEach((entry, i) => {
-      const score = isToday ? entry.todayScore : entry.weekScore;
-      const pct = Math.round((score / maxScore) * 100);
       const isMe = entry.name === myName;
       const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "";
 
       if (isToday) {
+        const hasTaskData = Object.keys(entry.todayTasks).length > 0;
+        const taskProgress = hasTaskData
+          ? this.calculateDayProgress(entry.todayTasks)
+          : null;
+        const completionPct = Math.round(entry.todayCompletion * 100);
+
+        let barHtml = "";
+        let chipsHtml = "";
+
+        if (taskProgress) {
+          // Stacked bar with per-task segments
+          barHtml = `<div class="lb-stacked-bar">
+            ${taskProgress
+              .map((t) => {
+                const w = (t.barPct * 100).toFixed(2);
+                return `<div class="dp-seg" style="width:${w}%;background:${t.color}" title="${t.type}: ${t.count}/${t.target}"></div>`;
+              })
+              .join("")}
+          </div>`;
+          chipsHtml = `<div class="lb-task-chips">
+            ${taskProgress
+              .map(
+                (t) =>
+                  `<span class="lb-task-chip" style="background:${t.color}">${t.type} ${t.count}</span>`,
+              )
+              .join("")}
+          </div>`;
+        } else {
+          // Legacy plain-total: simple single bar relative to highest total
+          const maxTotal = Math.max(...entries.map((e) => e.todayTotal), 1);
+          const pct = Math.round((entry.todayTotal / maxTotal) * 100);
+          barHtml = `<div class="lb-bar-wrap"><div class="lb-bar" style="width:${pct}%"></div></div>`;
+        }
+
         html += `
           <div class="leaderboard-row${isMe ? " leaderboard-me" : ""}">
             <div class="lb-rank">${medal || i + 1}</div>
             <div class="lb-info">
-              <div class="lb-name">${entry.name}${isMe ? " (you)" : ""}</div>
-              <div class="lb-bar-wrap">
-                <div class="lb-bar" style="width:${pct}%"></div>
+              <div class="lb-name">
+                ${entry.name}${isMe ? " (you)" : ""}
+                ${taskProgress ? `<span class="lb-completion-pct">${completionPct}%</span>` : ""}
               </div>
+              ${chipsHtml}
+              ${barHtml}
             </div>
-            <div class="lb-score">${score}</div>
+            <div class="lb-score">${entry.todayTotal}</div>
           </div>`;
       } else {
         const maxDay = Math.max(...entry.dayCounts, 1);
-        const dayGrid = dayLabels.map((label, di) => {
-          const count = entry.dayCounts[di];
-          const barPct = Math.round((count / maxDay) * 100);
-          const isCurrentDay = di === todayIndex;
-          return `
+        const dayGrid = dayLabels
+          .map((label, di) => {
+            const count = entry.dayCounts[di];
+            const barPct = Math.round((count / maxDay) * 100);
+            const isCurrentDay = di === todayIndex;
+            return `
             <div class="lb-day-cell${isCurrentDay ? " lb-day-today" : ""}">
               <div class="lb-day-bar-wrap">
                 <div class="lb-day-bar" style="height:${barPct}%"></div>
@@ -1681,7 +1954,8 @@ export class CounterApp {
               <div class="lb-day-count">${count > 0 ? count : "–"}</div>
               <div class="lb-day-label">${label}</div>
             </div>`;
-        }).join("");
+          })
+          .join("");
 
         html += `
           <div class="leaderboard-row leaderboard-row-week${isMe ? " leaderboard-me" : ""}">
@@ -1689,7 +1963,7 @@ export class CounterApp {
             <div class="lb-info">
               <div class="lb-name-row">
                 <span class="lb-name">${entry.name}${isMe ? " (you)" : ""}</span>
-                <span class="lb-score-inline">${score}</span>
+                <span class="lb-score-inline">${entry.weekScore}</span>
               </div>
               <div class="lb-week-grid">${dayGrid}</div>
             </div>

@@ -21,6 +21,18 @@
     <link rel="stylesheet" href="css/responsive.css" />
   </head>
   <body>
+    <!-- Fixed top progress bar — single stacked bar, hour-based -->
+    <div
+      id="dayProgressContainer"
+      class="day-progress-top"
+      style="display: none"
+    >
+      <div class="day-progress-header"></div>
+      <div id="dayProgressBar" class="day-progress-bar"></div>
+      <div id="dayProgressLegend" class="day-progress-legend"></div>
+      <span id="dayProgressPct" class="day-progress-pct">0%</span>
+    </div>
+
     <div class="app-wrapper">
       <main>
         <div class="sticky-header">
@@ -391,17 +403,26 @@
           </div>
 
           <div class="leaderboard-tabs">
-            <button class="leaderboard-tab active" data-lview="today">Today</button>
+            <button class="leaderboard-tab active" data-lview="today">
+              Today
+            </button>
             <button class="leaderboard-tab" data-lview="week">This Week</button>
           </div>
 
           <div id="leaderboardList" class="leaderboard-list">
-            <p class="leaderboard-empty">Open settings to set your name and opt in.</p>
+            <p class="leaderboard-empty">
+              Open settings to set your name and opt in.
+            </p>
           </div>
 
           <div class="leaderboard-footer">
-            <button id="refreshLeaderboardBtn" class="secondary-btn">↻ Refresh</button>
-            <span id="leaderboardLastUpdated" class="leaderboard-timestamp"></span>
+            <button id="refreshLeaderboardBtn" class="secondary-btn">
+              ↻ Refresh
+            </button>
+            <span
+              id="leaderboardLastUpdated"
+              class="leaderboard-timestamp"
+            ></span>
           </div>
         </div>
       </aside>
