@@ -1,5 +1,5 @@
 /* Switch to icon-only logo at 1200px */
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
   main {
     padding-left: 20px;
     padding-right: 20px;
@@ -17,7 +17,7 @@
 }
 
 /* Mobile adjustments */
-@media (max-width: 768px) {
+@media (max-width: 920px) {
   /* Header */
   .sticky-header {
     grid-template-columns: 1fr;
