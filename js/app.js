@@ -684,46 +684,49 @@ export class CounterApp {
    * Total bar % = sum of all bar-hours / 6, capped at 100 %.
    */
   calculateDayProgress(breakdownOverride) {
-    const breakdown = breakdownOverride || this.getTaskBreakdown();
-    const types = Object.keys(breakdown);
-    if (types.length === 0) return null;
+  const breakdown = breakdownOverride || this.getTaskBreakdown();
+  const types = Object.keys(breakdown);
+  if (types.length === 0) return null;
 
-    const HOURS = 6; // active working hours in a full day
-    const ICM_CAP_HOURS = 3; // ICM half-day baseline: 100 items = 3 bar-hours (50%); scales linearly beyond
+  const HOURS = 6; // active working hours in a full day
+  const ICM_CAP_HOURS = 3; // ICM half-day baseline: 100 items = 3 bar-hours (50%); scales linearly beyond
 
-    const tasks = [];
-    let totalBarHours = 0;
+  const tasks = [];
+  let totalBarHours = 0;
 
-    for (const type of types) {
-      const def = TASK_DEFINITIONS[type];
-      if (!def) continue;
-      const count = breakdown[type];
+  for (const type of types) {
+    const def = TASK_DEFINITIONS[type];
+    if (!def) continue;
+    const count = breakdown[type];
 
-      let barHours, target;
-     if (type === "ICM") {
-  target = def.halfDayTarget; // 100
-  // ICM scales linearly: 100 items = 50 % (3 bar-hours), 200 items = 100 % (6 bar-hours)
-  // No cap — going beyond 100 continues to fill the bar
-  barHours = (count / target) * ICM_CAP_HOURS;
-  }
-
-      tasks.push({ type, count, target, barHours, color: def.color });
-      totalBarHours += barHours;
+    let barHours, target;
+    if (type === "ICM") {
+      target = def.halfDayTarget; // 100
+      // ICM scales linearly: 100 items = 50% (3 bar-hours), 200 items = 100% (6 bar-hours)
+      // No cap — going beyond 100 continues to fill the bar
+      barHours = (count / target) * ICM_CAP_HOURS;
+    } else {
+      target = def.fullDayTarget;
+      // Each item = HOURS / target bar-hours (e.g. 1 CID = 6/36 = 0.167 h)
+      barHours = count * (HOURS / target);
     }
 
-    if (tasks.length === 0) return null;
-
-    // Cap the total at HOURS; scale all segments proportionally if exceeded
-    const cappedTotal = Math.min(totalBarHours, HOURS);
-    const scale = totalBarHours > 0 ? cappedTotal / totalBarHours : 0;
-
-    return tasks.map((t) => ({
-      ...t,
-      barHours: t.barHours * scale,
-      // barPct: 0–1 fraction of the full bar this task occupies (after capping)
-      barPct: (t.barHours * scale) / HOURS,
-    }));
+    tasks.push({ type, count, target, barHours, color: def.color });
+    totalBarHours += barHours;
   }
+
+  if (tasks.length === 0) return null;
+
+  // Cap the total at HOURS; scale all segments proportionally if exceeded
+  const cappedTotal = Math.min(totalBarHours, HOURS);
+  const scale = totalBarHours > 0 ? cappedTotal / totalBarHours : 0;
+
+  return tasks.map((t) => ({
+    ...t,
+    barHours: t.barHours * scale,
+    barPct: (t.barHours * scale) / HOURS,
+  }));
+}
 
   /**
    * Compute a 0–1 completion score from a task-count object.
