@@ -689,7 +689,7 @@ export class CounterApp {
     if (types.length === 0) return null;
 
     const HOURS = 6; // active working hours in a full day
-    const ICM_CAP_HOURS = 3; // ICM is a half-day task → caps at 3 bar-hours (50 %)
+    const ICM_CAP_HOURS = 3; // ICM half-day baseline: 100 items = 3 bar-hours (50%); scales linearly beyond
 
     const tasks = [];
     let totalBarHours = 0;
@@ -700,15 +700,12 @@ export class CounterApp {
       const count = breakdown[type];
 
       let barHours, target;
-      if (type === "ICM") {
-        target = def.halfDayTarget; // 100
-        // ICM contributes proportionally up to 100 items, then hard-capped at 50 %
-        barHours = Math.min((count / target) * ICM_CAP_HOURS, ICM_CAP_HOURS);
-      } else {
-        target = def.fullDayTarget;
-        // Each item = HOURS / target bar-hours (e.g. 1 CID = 6/36 = 0.167 h)
-        barHours = count * (HOURS / target);
-      }
+     if (type === "ICM") {
+  target = def.halfDayTarget; // 100
+  // ICM scales linearly: 100 items = 50 % (3 bar-hours), 200 items = 100 % (6 bar-hours)
+  // No cap — going beyond 100 continues to fill the bar
+  barHours = (count / target) * ICM_CAP_HOURS;
+  }
 
       tasks.push({ type, count, target, barHours, color: def.color });
       totalBarHours += barHours;
