@@ -717,14 +717,11 @@ export class CounterApp {
 
   if (tasks.length === 0) return null;
 
-  // Cap the total at HOURS; scale all segments proportionally if exceeded
-  const cappedTotal = Math.min(totalBarHours, HOURS);
-  const scale = totalBarHours > 0 ? cappedTotal / totalBarHours : 0;
 
   return tasks.map((t) => ({
     ...t,
-    barHours: t.barHours * scale,
-    barPct: (t.barHours * scale) / HOURS,
+    barHours: t.barHours,
+    barPct: t.barHours / HOURS,
   }));
 }
 
@@ -744,84 +741,87 @@ export class CounterApp {
    * One single horizontal bar; each task type's coloured segment width = its barPct.
    * The gray bar background fills the remaining (unfinished) portion automatically.
    */
-  renderProgressBar() {
-    const container = document.getElementById("dayProgressContainer");
-    const barEl = document.getElementById("dayProgressBar");
-    const pctEl = document.getElementById("dayProgressPct");
-    const legendEl = document.getElementById("dayProgressLegend");
-    if (!container) return;
+ renderProgressBar() {
+  const container = document.getElementById("dayProgressContainer");
+  const barEl = document.getElementById("dayProgressBar");
+  const pctEl = document.getElementById("dayProgressPct");
+  const legendEl = document.getElementById("dayProgressLegend");
+  if (!container) return;
 
-    const tasks = this.calculateDayProgress();
+  const tasks = this.calculateDayProgress();
 
-    if (!tasks) {
-      container.style.display = "none";
-      document.body.style.paddingTop = "";
-      return;
-    }
-
-    container.style.display = "";
-
-    // Overall completion %
-    const totalPct = Math.round(tasks.reduce((s, t) => s + t.barPct, 0) * 100);
-    if (pctEl) pctEl.textContent = totalPct + "%";
-
-    // Single stacked bar — update segments in-place so CSS width transition fires
-    // (replacing innerHTML kills the transition since new elements have no prior width)
-    const existing = Array.from(barEl.querySelectorAll(".dp-seg"));
-    tasks.forEach((t, i) => {
-      const w = (t.barPct * 100).toFixed(2);
-      let seg = existing[i];
-      if (!seg) {
-        seg = document.createElement("div");
-        seg.className = "dp-seg";
-        // Start at 0 so the width transition animates from nothing on first appear
-        seg.style.width = "0%";
-        seg.style.background = t.color;
-        barEl.appendChild(seg);
-        // Force a reflow so the browser registers the 0% before we set the real width
-        seg.getBoundingClientRect();
-      }
-      seg.style.width = w + "%";
-      seg.style.background = t.color;
-      seg.title = `${t.type}: ${t.count}`;
-    });
-    // Remove any leftover segments if task count shrank
-    for (let i = tasks.length; i < existing.length; i++) existing[i].remove();
-
-    // Milestone label overlay inside the bar
-    let labelEl = barEl.querySelector(".dp-bar-label");
-    if (!labelEl) {
-      labelEl = document.createElement("div");
-      labelEl.className = "dp-bar-label";
-      barEl.appendChild(labelEl);
-    }
-    let milestoneText = "";
-    if (totalPct >= 100) milestoneText = "Daily target reached!";
-    else if (totalPct >= 45 && totalPct <= 55) milestoneText = "Halfway there!";
-    labelEl.textContent = milestoneText;
-    labelEl.classList.toggle("visible", milestoneText !== "");
-
-    // Fire celebration when bar crosses 100% (only for task-based counters)
-    const today = this.getCurrentDayKey();
-    if (totalPct >= 100 && this.lastCelebrationDate !== today) {
-      this.showCelebration();
-      this.lastCelebrationDate = today;
-      this.saveProgress();
-    }
-
-    // Legend: pill chips per task
-    if (legendEl) {
-      legendEl.innerHTML = tasks
-        .map(
-          (t) =>
-            `<span class="dp-legend-chip" style="background:${t.color}">${t.type}&nbsp;${t.count}</span>`,
-        )
-        .join("");
-    }
-
-    // Push page content down so nothing hides behind the fixed bar
-    document.body.style.paddingTop = container.offsetHeight + "px";
+  if (!tasks) {
+    container.style.display = "none";
+    document.body.style.paddingTop = "";
+    return;
   }
+
+  container.style.display = "";
+
+  const totalRawPct = tasks.reduce((s, t) => s + t.barPct, 0); // may exceed 1.0
+  const totalDisplayPct = Math.round(totalRawPct * 100);        // e.g. 127
+  if (pctEl) pctEl.textContent = totalDisplayPct + "%";
+
+  // For the visual bar segments, scale widths so they always fit within 100%
+  // of the bar element — but the label and legend show the real (>100%) value.
+  const visualScale = totalRawPct > 1 ? 1 / totalRawPct : 1;
+
+  const existing = Array.from(barEl.querySelectorAll(".dp-seg"));
+  tasks.forEach((t, i) => {
+    // Visual width is capped proportionally so bar doesn't overflow its container
+    const visualW = (t.barPct * visualScale * 100).toFixed(2);
+    let seg = existing[i];
+    if (!seg) {
+      seg = document.createElement("div");
+      seg.className = "dp-seg";
+      seg.style.width = "0%";
+      seg.style.background = t.color;
+      barEl.appendChild(seg);
+      seg.getBoundingClientRect(); // force reflow for CSS transition
+    }
+    seg.style.width = visualW + "%";
+    seg.style.background = t.color;
+    seg.title = `${t.type}: ${t.count}`;
+  });
+
+  // Remove stale segments
+  for (let i = tasks.length; i < existing.length; i++) existing[i].remove();
+
+  // Milestone label — extend beyond 100%
+  let labelEl = barEl.querySelector(".dp-bar-label");
+  if (!labelEl) {
+    labelEl = document.createElement("div");
+    labelEl.className = "dp-bar-label";
+    barEl.appendChild(labelEl);
+  }
+  let milestoneText = "";
+  if (totalDisplayPct >= 200)       milestoneText = "200%! Absolutely unstoppable! 🚀";
+  else if (totalDisplayPct >= 150)  milestoneText = "150%! Going above and beyond! ⚡";
+  else if (totalDisplayPct >= 100)  milestoneText = "Daily target reached! 🎉";
+  else if (totalDisplayPct >= 45 && totalDisplayPct <= 55) milestoneText = "Halfway there!";
+  labelEl.textContent = milestoneText;
+  labelEl.classList.toggle("visible", milestoneText !== "");
+
+  // Celebration fires once when crossing 100%
+  const today = this.getCurrentDayKey();
+  if (totalDisplayPct >= 100 && this.lastCelebrationDate !== today) {
+    this.showCelebration();
+    this.lastCelebrationDate = today;
+    this.saveProgress();
+  }
+
+  // Legend chips show real counts
+  if (legendEl) {
+    legendEl.innerHTML = tasks
+      .map(
+        (t) =>
+          `<span class="dp-legend-chip" style="background:${t.color}">${t.type}&nbsp;${t.count}</span>`,
+      )
+      .join("");
+  }
+
+  document.body.style.paddingTop = container.offsetHeight + "px";
+}
 
   navigateWeek(direction) {
     this.currentWeekOffset += direction;
