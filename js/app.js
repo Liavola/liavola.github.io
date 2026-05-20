@@ -8,7 +8,7 @@ const TASK_DEFINITIONS = {
   CID: {
     patterns: ["cid"],
     fullDayTarget: 36,
-    color: "#Dc6a60",
+    color: "#B54a93",
   },
   SINGLES: {
     patterns: ["singles", "enkelvoudig", "enkel", "enkelvoudige", "single"],
