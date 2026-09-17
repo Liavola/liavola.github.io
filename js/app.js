@@ -25,6 +25,11 @@ const TASK_DEFINITIONS = {
     halfDayTarget: 100,
     color: "#4fbde3",
   },
+  AMP: {
+    patterns: ["amp"],
+    fullDayTarget: 50,
+    color: "#e8974a",
+  },
 };
 
 export class CounterApp {
