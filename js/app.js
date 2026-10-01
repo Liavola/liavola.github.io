@@ -32,6 +32,18 @@ const TASK_DEFINITIONS = {
     fullDayTarget: 50,
     color: "#e8974a",
   },
+  "REK. OP": {
+    patterns: [
+      "rek. op",
+      "rek op",
+      "rekop",
+      "rek.op",
+      "rekening openen",
+      "onboarding",
+    ],
+    fullDayTarget: 36,
+    color: "#8a6fd4",
+  },
 };
 
 export class CounterApp {
