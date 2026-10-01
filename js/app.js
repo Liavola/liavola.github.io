@@ -32,7 +32,7 @@ const TASK_DEFINITIONS = {
     fullDayTarget: 50,
     color: "#e8974a",
   },
-  "REK. OP": {
+  REK_OP: {
     patterns: [
       "rek. op",
       "rek op",
