@@ -32,6 +32,7 @@ import {
   set,
   get,
   push,
+  onValue,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js";
 
 const FIREBASE_CONFIG = {
@@ -177,24 +178,24 @@ export async function pushComment(name, text) {
 }
 
 /**
- * Fetch the most recent comments from the team feed, newest first.
- * Returns null if Firebase is not configured or fetch fails.
- * @param {number} limitCount - max number of comments to fetch
+ * Listen for live changes to the team feed. The callback receives the
+ * most recent comments, newest first, on every change.
+ * @returns {Function} unsubscribe
  */
-export async function fetchComments(limitCount = 50) {
-  if (!isConfigured()) return null;
-  try {
-    const db = getDb();
-    const snapshot = await get(ref(db, "comments"));
-    if (!snapshot.exists()) return [];
-    const data = snapshot.val();
-    return Object.values(data)
-      .sort((a, b) => b.ts - a.ts)
-      .slice(0, limitCount);
-  } catch (err) {
-    console.warn("[Leaderboard] comments fetch failed:", err.message);
-    return null;
-  }
+export function subscribeComments(callback, limitCount = 50) {
+  if (!isConfigured()) return () => {};
+  return onValue(
+    ref(getDb(), "comments"),
+    (snapshot) => {
+      const data = snapshot.exists() ? snapshot.val() : {};
+      callback(
+        Object.values(data)
+          .sort((a, b) => b.ts - a.ts)
+          .slice(0, limitCount),
+      );
+    },
+    (err) => console.warn("[Leaderboard] comments listener failed:", err.message),
+  );
 }
 
 export { isConfigured };

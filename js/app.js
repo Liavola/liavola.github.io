@@ -5,7 +5,7 @@ import {
   fetchAllowlist,
   isConfigured,
   pushComment,
-  fetchComments,
+  subscribeComments,
 } from "./leaderboard.js";
 
 // ─── Task Definitions ─────────────────────────────────────────────────────────
@@ -105,6 +105,7 @@ export class CounterApp {
     // Auto-select first counter for keyboard use
     if (this.counters.length > 0) this.selectCounter(this.counters[0].id);
     this.renderProgressBar();
+    this.startChatListener();
   }
 
   setupFontDropdown() {
@@ -174,10 +175,7 @@ export class CounterApp {
     // Leaderboard
     bind("toggleLeaderboardBtn", "click", () => this.toggleLeaderboard());
     bind("closeLeaderboardBtn", "click", () => this.closeLeaderboard());
-    bind("refreshLeaderboardBtn", "click", () => {
-      this.loadLeaderboardData();
-      this.updateChatBadge();
-    });
+    bind("refreshLeaderboardBtn", "click", () => this.loadLeaderboardData());
     bind("leaderboardDisplayName", "input", (e) => this.updateDisplayName(e));
     bind("leaderboardOptIn", "change", (e) => this.toggleLeaderboardOptIn(e));
 
@@ -1786,7 +1784,6 @@ export class CounterApp {
     panel.classList.toggle("open");
     if (panel.classList.contains("open")) {
       this.loadLeaderboardData();
-      this.updateChatBadge();
     } else {
       this.closeChat();
     }
@@ -1797,33 +1794,38 @@ export class CounterApp {
     this.closeChat();
   }
 
-  async openChat() {
+  openChat() {
     document.getElementById("chatPanel").classList.add("open");
     document.getElementById("leaderboardChatInput").focus();
-    const comments = await this.loadComments();
-    this.markChatSeen(comments);
+    this.markChatSeen();
   }
 
   closeChat() {
     document.getElementById("chatPanel").classList.remove("open");
   }
 
+  startChatListener() {
+    subscribeComments((comments) => {
+      this._comments = comments;
+      this.renderComments(comments);
+      if (document.getElementById("chatPanel").classList.contains("open")) {
+        this.markChatSeen();
+      } else {
+        this.updateChatBadge();
+      }
+    });
+  }
+
   // Uses the newest message's own timestamp (not the local clock) so clock differences between teammates don't hide messages.
-  markChatSeen(comments) {
-    if (comments?.length) {
-      localStorage.setItem("chatLastSeen", String(comments[0].ts));
+  markChatSeen() {
+    if (this._comments?.length) {
+      localStorage.setItem("chatLastSeen", String(this._comments[0].ts));
     }
     this.setChatBadge(0);
   }
 
-  async updateChatBadge() {
-    if (!isConfigured()) return;
-    const comments = await fetchComments();
-    if (!comments) return;
-    if (document.getElementById("chatPanel").classList.contains("open")) {
-      this.markChatSeen(comments);
-      return;
-    }
+  updateChatBadge() {
+    const comments = this._comments || [];
     const lastSeen = Number(localStorage.getItem("chatLastSeen")) || 0;
     const unread = comments.filter(
       (c) => c.ts > lastSeen && c.name !== this.displayName,
@@ -2077,27 +2079,13 @@ export class CounterApp {
     listEl.innerHTML = html;
   }
 
-  async loadComments() {
-    const listEl = document.getElementById("leaderboardChatList");
-    if (!listEl || !isConfigured()) return null;
-
-    const comments = await fetchComments();
-    if (comments === null) {
-      listEl.innerHTML =
-        '<p class="leaderboard-empty">Could not load messages.</p>';
-      return null;
-    }
-    if (comments.length === 0) {
-      listEl.innerHTML = '<p class="leaderboard-empty">No messages yet.</p>';
-      return comments;
-    }
-    this.renderComments(comments);
-    return comments;
-  }
-
   renderComments(comments) {
     const listEl = document.getElementById("leaderboardChatList");
     if (!listEl) return;
+    if (comments.length === 0) {
+      listEl.innerHTML = '<p class="leaderboard-empty">No messages yet.</p>';
+      return;
+    }
 
     listEl.innerHTML = comments
       .map((c) => {
@@ -2136,10 +2124,7 @@ export class CounterApp {
     }
 
     const ok = await pushComment(this.displayName, text);
-    if (ok) {
-      input.value = "";
-      this.loadComments();
-    }
+    if (ok) input.value = "";
   }
 
   escapeHtml(str) {
