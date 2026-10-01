@@ -184,10 +184,9 @@ export class CounterApp {
       );
     });
 
-    const chatForm = document.getElementById("leaderboardChatForm");
-    if (chatForm) {
-      chatForm.addEventListener("submit", (e) => this.postComment(e));
-    }
+    bind("leaderboardChatForm", "submit", (e) => this.postComment(e));
+    bind("openChatBtn", "click", () => this.openChat());
+    bind("closeChatBtn", "click", () => this.closeChat());
 
     // Keyboard shortcuts
     document.addEventListener("keydown", (e) => this.handleKeyboard(e));
@@ -1784,12 +1783,24 @@ export class CounterApp {
     panel.classList.toggle("open");
     if (panel.classList.contains("open")) {
       this.loadLeaderboardData();
-      this.loadComments();
+    } else {
+      this.closeChat();
     }
   }
 
   closeLeaderboard() {
     document.getElementById("leaderboardPanel").classList.remove("open");
+    this.closeChat();
+  }
+
+  openChat() {
+    document.getElementById("chatPanel").classList.add("open");
+    this.loadComments();
+    document.getElementById("leaderboardChatInput").focus();
+  }
+
+  closeChat() {
+    document.getElementById("chatPanel").classList.remove("open");
   }
 
   switchLeaderboardView(view) {

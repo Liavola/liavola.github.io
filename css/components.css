@@ -1268,23 +1268,20 @@
 
 /* ── Team Chat ──────────────────────────────────────────────────────────────── */
 
-.leaderboard-chat {
-  padding-top: 14px;
-  margin-top: 10px;
-  border-top: 1px solid rgba(66, 71, 158, 0.1);
+.chat-panel {
+  z-index: 1001;
 }
 
-.leaderboard-chat h4 {
-  margin: 0 0 10px;
-  font-size: 14px;
-  color: #555;
+#openChatBtn {
+  margin-left: auto;
+  margin-right: 8px;
 }
 
 .leaderboard-chat-list {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 180px;
   overflow-y: auto;
   margin-bottom: 10px;
 }

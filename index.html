@@ -399,6 +399,7 @@
         <div class="leaderboard-content">
           <div class="leaderboard-header">
             <h2>🏆 Team</h2>
+            <button id="openChatBtn" class="secondary-btn">💬 Chat</button>
             <button id="closeLeaderboardBtn" class="close-btn">×</button>
           </div>
 
@@ -424,23 +425,29 @@
               class="leaderboard-timestamp"
             ></span>
           </div>
+        </div>
+      </aside>
 
-          <div class="leaderboard-chat">
-            <h4>Team Chat</h4>
-            <div id="leaderboardChatList" class="leaderboard-chat-list">
-              <p class="leaderboard-empty">No messages yet.</p>
-            </div>
-            <form id="leaderboardChatForm" class="leaderboard-chat-form">
-              <input
-                type="text"
-                id="leaderboardChatInput"
-                maxlength="300"
-                placeholder="Say something to the team…"
-                autocomplete="off"
-              />
-              <button type="submit" class="secondary-btn">Send</button>
-            </form>
+      <!-- Team Chat Panel -->
+      <aside class="leaderboard-panel chat-panel" id="chatPanel">
+        <div class="leaderboard-content">
+          <div class="leaderboard-header">
+            <h2>💬 Team Chat</h2>
+            <button id="closeChatBtn" class="close-btn">×</button>
           </div>
+          <div id="leaderboardChatList" class="leaderboard-chat-list">
+            <p class="leaderboard-empty">No messages yet.</p>
+          </div>
+          <form id="leaderboardChatForm" class="leaderboard-chat-form">
+            <input
+              type="text"
+              id="leaderboardChatInput"
+              maxlength="300"
+              placeholder="Say something to the team…"
+              autocomplete="off"
+            />
+            <button type="submit" class="secondary-btn">Send</button>
+          </form>
         </div>
       </aside>
 
