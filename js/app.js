@@ -42,7 +42,7 @@ const TASK_DEFINITIONS = {
       "onboarding",
     ],
     fullDayTarget: 36,
-    color: "#080f77",
+    color: "#0c17b8",
   },
 };
 
