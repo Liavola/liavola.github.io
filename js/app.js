@@ -42,7 +42,7 @@ const TASK_DEFINITIONS = {
       "onboarding",
     ],
     fullDayTarget: 36,
-    color: "#8a6fd4",
+    color: "#080f77",
   },
 };
 
@@ -174,7 +174,10 @@ export class CounterApp {
     // Leaderboard
     bind("toggleLeaderboardBtn", "click", () => this.toggleLeaderboard());
     bind("closeLeaderboardBtn", "click", () => this.closeLeaderboard());
-    bind("refreshLeaderboardBtn", "click", () => this.loadLeaderboardData());
+    bind("refreshLeaderboardBtn", "click", () => {
+      this.loadLeaderboardData();
+      this.updateChatBadge();
+    });
     bind("leaderboardDisplayName", "input", (e) => this.updateDisplayName(e));
     bind("leaderboardOptIn", "change", (e) => this.toggleLeaderboardOptIn(e));
 
@@ -1783,6 +1786,7 @@ export class CounterApp {
     panel.classList.toggle("open");
     if (panel.classList.contains("open")) {
       this.loadLeaderboardData();
+      this.updateChatBadge();
     } else {
       this.closeChat();
     }
@@ -1793,14 +1797,45 @@ export class CounterApp {
     this.closeChat();
   }
 
-  openChat() {
+  async openChat() {
     document.getElementById("chatPanel").classList.add("open");
-    this.loadComments();
     document.getElementById("leaderboardChatInput").focus();
+    const comments = await this.loadComments();
+    this.markChatSeen(comments);
   }
 
   closeChat() {
     document.getElementById("chatPanel").classList.remove("open");
+  }
+
+  // Uses the newest message's own timestamp (not the local clock) so clock differences between teammates don't hide messages.
+  markChatSeen(comments) {
+    if (comments?.length) {
+      localStorage.setItem("chatLastSeen", String(comments[0].ts));
+    }
+    this.setChatBadge(0);
+  }
+
+  async updateChatBadge() {
+    if (!isConfigured()) return;
+    const comments = await fetchComments();
+    if (!comments) return;
+    if (document.getElementById("chatPanel").classList.contains("open")) {
+      this.markChatSeen(comments);
+      return;
+    }
+    const lastSeen = Number(localStorage.getItem("chatLastSeen")) || 0;
+    const unread = comments.filter(
+      (c) => c.ts > lastSeen && c.name !== this.displayName,
+    ).length;
+    this.setChatBadge(unread);
+  }
+
+  setChatBadge(count) {
+    const badge = document.getElementById("chatBadge");
+    if (!badge) return;
+    badge.hidden = count === 0;
+    badge.textContent = count > 9 ? "9+" : String(count);
   }
 
   switchLeaderboardView(view) {
@@ -2044,19 +2079,20 @@ export class CounterApp {
 
   async loadComments() {
     const listEl = document.getElementById("leaderboardChatList");
-    if (!listEl || !isConfigured()) return;
+    if (!listEl || !isConfigured()) return null;
 
     const comments = await fetchComments();
     if (comments === null) {
       listEl.innerHTML =
         '<p class="leaderboard-empty">Could not load messages.</p>';
-      return;
+      return null;
     }
     if (comments.length === 0) {
       listEl.innerHTML = '<p class="leaderboard-empty">No messages yet.</p>';
-      return;
+      return comments;
     }
     this.renderComments(comments);
+    return comments;
   }
 
   renderComments(comments) {

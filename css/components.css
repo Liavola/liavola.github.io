@@ -1277,6 +1277,23 @@
   margin-right: 8px;
 }
 
+.chat-badge {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  margin-left: 4px;
+  border-radius: 9px;
+  background: #e74c3c;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.chat-badge[hidden] {
+  display: none;
+}
+
 .leaderboard-chat-list {
   flex: 1;
   display: flex;
