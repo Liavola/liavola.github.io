@@ -11,6 +11,13 @@
 //          "leaderboard": {
 //            ".read": true,
 //            "$user": { ".write": "root.child('allowList').child($user).exists()" }
+//          },
+//          "comments": {
+//            ".read": true,
+//            "$commentId": {
+//              ".write": "!data.exists() && root.child('allowList').child(newData.child('name').val()).exists()",
+//              ".validate": "newData.hasChildren(['name', 'text', 'ts'])"
+//            }
 //          }
 //        }
 //      }
@@ -24,6 +31,10 @@ import {
   ref,
   set,
   get,
+  push,
+  query,
+  orderByChild,
+  limitToLast,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js";
 
 const FIREBASE_CONFIG = {
@@ -133,6 +144,55 @@ export async function fetchAllowlist() {
     return snapshot.exists() ? snapshot.val() : null;
   } catch (err) {
     console.warn("[Leaderboard] allowlist fetch failed:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Post a comment to the shared team feed.
+ * Silently skips if the user's name is not in the allowList.
+ * @param {string} name - Display name
+ * @param {string} text - Comment text (trimmed and capped at 300 chars)
+ * @returns {Promise<boolean>} whether the comment was posted
+ */
+export async function pushComment(name, text) {
+  if (!isConfigured()) return false;
+  const trimmed = text.trim().slice(0, 300);
+  if (!trimmed) return false;
+  try {
+    const db = getDb();
+    const key = sanitizeKey(name);
+    const allowList = await getOrFetchAllowList();
+    if (allowList && !allowList.has(key)) return false;
+    await push(ref(db, "comments"), {
+      name,
+      text: trimmed,
+      ts: Date.now(),
+    });
+    return true;
+  } catch (err) {
+    console.warn("[Leaderboard] comment post failed:", err.message);
+    return false;
+  }
+}
+
+/**
+ * Fetch the most recent comments from the team feed, newest first.
+ * Returns null if Firebase is not configured or fetch fails.
+ * @param {number} limitCount - max number of comments to fetch
+ */
+export async function fetchComments(limitCount = 50) {
+  if (!isConfigured()) return null;
+  try {
+    const db = getDb();
+    const snapshot = await get(
+      query(ref(db, "comments"), orderByChild("ts"), limitToLast(limitCount)),
+    );
+    if (!snapshot.exists()) return [];
+    const data = snapshot.val();
+    return Object.values(data).sort((a, b) => b.ts - a.ts);
+  } catch (err) {
+    console.warn("[Leaderboard] comments fetch failed:", err.message);
     return null;
   }
 }

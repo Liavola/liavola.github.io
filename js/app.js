@@ -4,6 +4,8 @@ import {
   fetchLeaderboard,
   fetchAllowlist,
   isConfigured,
+  pushComment,
+  fetchComments,
 } from "./leaderboard.js";
 
 // ─── Task Definitions ─────────────────────────────────────────────────────────
@@ -169,6 +171,11 @@ export class CounterApp {
         this.switchLeaderboardView(tab.dataset.lview),
       );
     });
+
+    const chatForm = document.getElementById("leaderboardChatForm");
+    if (chatForm) {
+      chatForm.addEventListener("submit", (e) => this.postComment(e));
+    }
 
     // Keyboard shortcuts
     document.addEventListener("keydown", (e) => this.handleKeyboard(e));
@@ -1765,6 +1772,7 @@ export class CounterApp {
     panel.classList.toggle("open");
     if (panel.classList.contains("open")) {
       this.loadLeaderboardData();
+      this.loadComments();
     }
   }
 
@@ -2009,6 +2017,76 @@ export class CounterApp {
     });
 
     listEl.innerHTML = html;
+  }
+
+  async loadComments() {
+    const listEl = document.getElementById("leaderboardChatList");
+    if (!listEl || !isConfigured()) return;
+
+    const comments = await fetchComments();
+    if (comments === null) {
+      listEl.innerHTML =
+        '<p class="leaderboard-empty">Could not load messages.</p>';
+      return;
+    }
+    if (comments.length === 0) {
+      listEl.innerHTML = '<p class="leaderboard-empty">No messages yet.</p>';
+      return;
+    }
+    this.renderComments(comments);
+  }
+
+  renderComments(comments) {
+    const listEl = document.getElementById("leaderboardChatList");
+    if (!listEl) return;
+
+    listEl.innerHTML = comments
+      .map((c) => {
+        const time = new Date(c.ts).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        return `
+          <div class="lb-comment">
+            <div class="lb-comment-meta">
+              <span class="lb-comment-name">${this.escapeHtml(c.name)}</span>
+              <span>${time}</span>
+            </div>
+            <div class="lb-comment-text">${this.escapeHtml(c.text)}</div>
+          </div>`;
+      })
+      .join("");
+  }
+
+  async postComment(e) {
+    e.preventDefault();
+    const input = document.getElementById("leaderboardChatInput");
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+
+    if (!this.leaderboardEnabled || !this.displayName) {
+      const listEl = document.getElementById("leaderboardChatList");
+      if (listEl) {
+        listEl.innerHTML =
+          '<p class="leaderboard-empty">Enter your name and opt in (in Settings) before posting.</p>';
+      }
+      return;
+    }
+
+    const ok = await pushComment(this.displayName, text);
+    if (ok) {
+      input.value = "";
+      this.loadComments();
+    }
+  }
+
+  escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
   }
 
   _getThisWeekDays() {

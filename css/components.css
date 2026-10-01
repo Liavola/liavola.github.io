@@ -1266,6 +1266,70 @@
   color: #999;
 }
 
+/* ── Team Chat ──────────────────────────────────────────────────────────────── */
+
+.leaderboard-chat {
+  padding-top: 14px;
+  margin-top: 10px;
+  border-top: 1px solid rgba(66, 71, 158, 0.1);
+}
+
+.leaderboard-chat h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: #555;
+}
+
+.leaderboard-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.lb-comment {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(66, 71, 158, 0.05);
+  border: 1px solid rgba(66, 71, 158, 0.1);
+  font-size: 13px;
+}
+
+.lb-comment-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+  font-size: 11px;
+  color: #999;
+}
+
+.lb-comment-name {
+  font-weight: 600;
+  color: #42479e;
+}
+
+.lb-comment-text {
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.leaderboard-chat-form {
+  display: flex;
+  gap: 8px;
+}
+
+.leaderboard-chat-form input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 2px solid rgba(66, 71, 158, 0.2);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
 /* ── Leaderboard Settings fields ───────────────────────────────────────────── */
 
 .leaderboard-optin-group {
