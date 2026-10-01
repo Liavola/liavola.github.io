@@ -5,22 +5,22 @@
 //   2. Build → Realtime Database → Create database → Start in test mode
 //   3. Project Settings → Your apps → Add web app → copy the config below
 //   4. In the Realtime Database "Rules" tab, paste:
-//      {
-//        "rules": {
-//          "allowList": { ".read": true, ".write": false },
-//          "leaderboard": {
-//            ".read": true,
-//            "$user": { ".write": "root.child('allowList').child($user).exists()" }
-//          },
-//          "comments": {
-//            ".read": true,
-//            "$commentId": {
-//              ".write": "!data.exists() && root.child('allowList').child(newData.child('name').val()).exists()",
-//              ".validate": "newData.hasChildren(['name', 'text', 'ts'])"
-//            }
-//          }
+//  {
+//    "rules": {
+//      "allowList": { ".read": true, ".write": false },
+//      "leaderboard": {
+//        ".read": true,
+//        "$user": { ".write": "root.child('allowList').child($user).exists()" }
+//      },
+//      "comments": {
+//        ".read": true,
+//        "$commentId": {
+//          ".write": "!data.exists() && root.child('allowList').child(newData.child('name').val()).exists()",
+//          ".validate": "newData.hasChildren(['name', 'text', 'ts'])"
 //        }
 //      }
+//    }
+//  }
 //   5. Add allowed names under allowList/ in the Database (key = display name, value = true).
 //
 // Then fill in your config values below and share the file with your team.
@@ -32,15 +32,13 @@ import {
   set,
   get,
   push,
-  query,
-  orderByChild,
-  limitToLast,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js";
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBBNOP6urLAl-_7wJoa-1n0nRnKpW2SjCE",
   authDomain: "worflow-counter.firebaseapp.com",
-  databaseURL: "https://worflow-counter-default-rtdb.europe-west1.firebasedatabase.app",
+  databaseURL:
+    "https://worflow-counter-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "worflow-counter",
   storageBucket: "worflow-counter.firebasestorage.app",
   messagingSenderId: "465573472148",
@@ -79,7 +77,9 @@ async function getOrFetchAllowList() {
     const db = getDb();
     const snapshot = await get(ref(db, "allowList"));
     // Works whether allowList entries are { name: true } or { name: { since: "..." } }
-    _allowListCache = snapshot.exists() ? new Set(Object.keys(snapshot.val())) : null;
+    _allowListCache = snapshot.exists()
+      ? new Set(Object.keys(snapshot.val()))
+      : null;
   } catch {
     _allowListCache = null; // on error, don't block anyone
   }
@@ -124,7 +124,7 @@ export async function fetchLeaderboard() {
     const data = leaderSnapshot.val();
     if (!allowList) return data; // no allowList = show everyone
     return Object.fromEntries(
-      Object.entries(data).filter(([key]) => allowList.has(key))
+      Object.entries(data).filter(([key]) => allowList.has(key)),
     );
   } catch (err) {
     console.warn("[Leaderboard] fetch failed:", err.message);
@@ -185,12 +185,12 @@ export async function fetchComments(limitCount = 50) {
   if (!isConfigured()) return null;
   try {
     const db = getDb();
-    const snapshot = await get(
-      query(ref(db, "comments"), orderByChild("ts"), limitToLast(limitCount)),
-    );
+    const snapshot = await get(ref(db, "comments"));
     if (!snapshot.exists()) return [];
     const data = snapshot.val();
-    return Object.values(data).sort((a, b) => b.ts - a.ts);
+    return Object.values(data)
+      .sort((a, b) => b.ts - a.ts)
+      .slice(0, limitCount);
   } catch (err) {
     console.warn("[Leaderboard] comments fetch failed:", err.message);
     return null;
