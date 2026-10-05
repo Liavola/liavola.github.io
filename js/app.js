@@ -41,7 +41,7 @@ const TASK_DEFINITIONS = {
       "rekening openen",
       "onboarding",
     ],
-    fullDayTarget: 12.5,
+    fullDayTarget: 12,
     color: "#0c17b8",
   },
 };
