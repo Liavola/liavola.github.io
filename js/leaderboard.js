@@ -88,6 +88,34 @@ async function getOrFetchAllowList() {
 }
 
 /**
+ * Resolve a typed name to its canonical allowList key, ignoring case.
+ * Returns the sanitized name if no allowList exists, or null if not allowed.
+ */
+export async function resolveAllowedName(name) {
+  if (!isConfigured()) return null;
+  const key = sanitizeKey(name);
+  const allowList = await getOrFetchAllowList();
+  if (!allowList || allowList.has(key)) return key;
+  const lower = key.toLowerCase();
+  return [...allowList].find((k) => k.toLowerCase() === lower) ?? null;
+}
+
+/**
+ * Fetch all stored days for one user, e.g. { "2026-03-17": { _total: 42, CID: 12 }, ... }.
+ * Returns null if nothing is stored or the fetch fails.
+ */
+export async function fetchUserScores(name) {
+  if (!isConfigured()) return null;
+  try {
+    const snapshot = await get(ref(getDb(), `leaderboard/${sanitizeKey(name)}`));
+    return snapshot.exists() ? snapshot.val() : null;
+  } catch (err) {
+    console.warn("[Leaderboard] user fetch failed:", err.message);
+    return null;
+  }
+}
+
+/**
  * Push today's score for a user.
  * Silently skips if the user's name is not in the allowList.
  * @param {string} name - Display name

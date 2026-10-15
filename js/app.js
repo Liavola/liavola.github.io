@@ -6,6 +6,8 @@ import {
   isConfigured,
   pushComment,
   subscribeComments,
+  resolveAllowedName,
+  fetchUserScores,
 } from "./leaderboard.js";
 
 // ─── Task Definitions ─────────────────────────────────────────────────────────
@@ -177,6 +179,7 @@ export class CounterApp {
     bind("closeLeaderboardBtn", "click", () => this.closeLeaderboard());
     bind("refreshLeaderboardBtn", "click", () => this.loadLeaderboardData());
     bind("leaderboardDisplayName", "input", (e) => this.updateDisplayName(e));
+    bind("leaderboardDisplayName", "change", () => this.claimDisplayName());
     bind("leaderboardOptIn", "change", (e) => this.toggleLeaderboardOptIn(e));
 
     document.querySelectorAll(".leaderboard-tab").forEach((tab) => {
@@ -1774,9 +1777,143 @@ export class CounterApp {
     this.leaderboardEnabled = e.target.checked;
     this.saveSettings();
 
-    if (this.leaderboardEnabled && this.displayName) {
-      this.syncToLeaderboard();
+    this.claimDisplayName();
+  }
+
+  /**
+   * Called when the user opts in or commits their name. Matches the name to
+   * the allowList (case-insensitive) and pulls their existing Firebase data
+   * back into local storage *before* syncing, so a fresh browser (cleared
+   * cookies, new device) doesn't overwrite their scores with zeros.
+   */
+  async claimDisplayName() {
+    if (!this.leaderboardEnabled || !this.displayName || !isConfigured()) {
+      return;
     }
+    this._restoring = true;
+    try {
+      const canonical = await resolveAllowedName(this.displayName);
+      if (!canonical) return; // not on the allowList — nothing to restore or sync
+      if (canonical !== this.displayName) {
+        this.displayName = canonical;
+        const nameInput = document.getElementById("leaderboardDisplayName");
+        if (nameInput) nameInput.value = canonical;
+        this.saveSettings();
+      }
+      await this.restoreFromLeaderboard();
+    } finally {
+      this._restoring = false;
+    }
+    await this.syncToLeaderboard();
+  }
+
+  /** Merge the user's Firebase history into local progress, keeping the higher value per day / task. */
+  async restoreFromLeaderboard() {
+    const remote = await fetchUserScores(this.displayName);
+    if (!remote) return;
+
+    const today = this.getCurrentDayKey();
+
+    for (const [dateKey, val] of Object.entries(remote)) {
+      if (dateKey === today) continue;
+      const { total, tasks } = this.parseRemoteDay(val);
+      if (total <= this.getDayTotal(dateKey)) continue;
+      const counters = {};
+      for (const [type, count] of Object.entries(tasks)) {
+        counters[this.taskLabel(type)] = count;
+      }
+      this.weeklyProgress[dateKey] = {
+        total,
+        counters,
+        note: this.getDayNote(dateKey),
+      };
+    }
+
+    if (remote[today] !== undefined) {
+      this.restoreTodayCounters(this.parseRemoteDay(remote[today]));
+    }
+
+    // Recompute today's entry and personal best without firing celebrations
+    // for progress that was already achieved earlier.
+    const prevCelebration = this.lastCelebrationDate;
+    const prevPbCelebration = this.lastPersonalBestCelebration;
+    this.lastCelebrationDate = today;
+    this.lastPersonalBestCelebration = today;
+    this.updateDailyProgress();
+    this.lastPersonalBestCelebration = prevPbCelebration;
+    if (!this.isTodayTargetReached()) this.lastCelebrationDate = prevCelebration;
+    this.saveProgress();
+  }
+
+  restoreTodayCounters({ total, tasks }) {
+    const types = Object.keys(tasks);
+
+    if (types.length === 0) {
+      // Legacy plain-total entry: top up the first counter
+      const localTotal = this.counters.reduce((sum, c) => sum + c.count, 0);
+      const first = this.counters[0];
+      if (first && total > localTotal) {
+        first.count += total - localTotal;
+        this.updateCounterDisplay(first.id, first.count);
+      }
+    } else {
+      const local = this.getTaskBreakdown();
+      for (const type of types) {
+        const missing = tasks[type] - (local[type] || 0);
+        if (missing <= 0) continue;
+
+        let counter = this.counters.find(
+          (c) => this.detectTaskType(c.name) === type,
+        );
+        if (!counter) {
+          // Reuse an empty, untyped counter (e.g. the default "Counter 1") before adding a new one
+          counter = this.counters.find(
+            (c) => c.count === 0 && !this.detectTaskType(c.name),
+          );
+          if (counter) {
+            counter.name = this.taskLabel(type);
+            const titleEl = document.querySelector(
+              `[data-id="${counter.id}"] .counter-title`,
+            );
+            if (titleEl) titleEl.textContent = counter.name;
+          } else {
+            counter = { id: this.nextId++, count: 0, name: this.taskLabel(type) };
+            this.counters.push(counter);
+            this.renderCounter(counter);
+          }
+        }
+        counter.count += missing;
+        this.updateCounterDisplay(counter.id, counter.count);
+      }
+    }
+
+    this.updateTotal();
+    this.saveCounters();
+  }
+
+  // Parse a raw Firebase day value (number = legacy, object = new format).
+  parseRemoteDay(val) {
+    if (typeof val === "number") return { total: val, tasks: {} };
+    if (val && typeof val === "object") {
+      const { _total = 0, ...tasks } = val;
+      return { total: _total, tasks };
+    }
+    return { total: 0, tasks: {} };
+  }
+
+  // Counter name for a task type that detectTaskType() maps back to the same type
+  taskLabel(type) {
+    return type.replace("_", " ");
+  }
+
+  isTodayTargetReached() {
+    const tasks = this.calculateDayProgress();
+    if (tasks) {
+      return Math.round(tasks.reduce((s, t) => s + t.barPct, 0) * 100) >= 100;
+    }
+    return (
+      this.counters.reduce((sum, c) => sum + c.count, 0) >= this.dailyTarget
+    );
   }
 
   toggleLeaderboard() {
@@ -1861,7 +1998,7 @@ export class CounterApp {
   }
 
   async syncToLeaderboard() {
-    if (!this.leaderboardEnabled || !this.displayName) return;
+    if (!this.leaderboardEnabled || !this.displayName || this._restoring) return;
     const today = this.getCurrentDayKey();
     const total = this.getDayTotal(today);
     // Build task-type breakdown from current counters for richer leaderboard display
@@ -1945,15 +2082,7 @@ export class CounterApp {
     const isToday = this.leaderboardView === "today";
     const myName = this.displayName.trim();
 
-    // Parse a raw Firebase day value (number = legacy, object = new format).
-    const parseDayVal = (val) => {
-      if (typeof val === "number") return { total: val, tasks: {} };
-      if (val && typeof val === "object") {
-        const { _total = 0, ...tasks } = val;
-        return { total: _total, tasks };
-      }
-      return { total: 0, tasks: {} };
-    };
+    const parseDayVal = (val) => this.parseRemoteDay(val);
 
     // Apply allowlist filter if one is configured
     const allowlist = this._allowlistCache;
