@@ -43,7 +43,7 @@ const TASK_DEFINITIONS = {
       "rekening openen",
       "onboarding",
     ],
-    fullDayTarget: 36,
+    fullDayTarget: 12,
     color: "#0c17b8",
   },
 };
@@ -1971,10 +1971,15 @@ export class CounterApp {
   }
 
   setChatBadge(count) {
-    const badge = document.getElementById("chatBadge");
-    if (!badge) return;
-    badge.hidden = count === 0;
-    badge.textContent = count > 9 ? "9+" : String(count);
+    const badges = [
+      document.getElementById("chatBadge"),
+      document.getElementById("teamChatBadge"),
+    ];
+    badges.forEach((badge) => {
+      if (!badge) return;
+      badge.hidden = count === 0;
+      badge.textContent = count > 9 ? "9+" : String(count);
+    });
   }
 
   switchLeaderboardView(view) {
