@@ -1418,7 +1418,8 @@ export class CounterApp {
     this.renderCustomImages();
     this.audioFeedback = new AudioFeedback();
 
-    localStorage.removeItem("counterAppSettings");
+    // Save the defaults instead of deleting the entry, so the leaderboard name/opt-in survive
+    this.saveSettings();
   }
 
   calculateLuminance(color) {
@@ -1787,6 +1788,7 @@ export class CounterApp {
    * cookies, new device) doesn't overwrite their scores with zeros.
    */
   async claimDisplayName() {
+    this.readLeaderboardInputs();
     if (!this.leaderboardEnabled || !this.displayName || !isConfigured()) {
       return;
     }
@@ -1805,6 +1807,26 @@ export class CounterApp {
       this._restoring = false;
     }
     await this.syncToLeaderboard();
+  }
+
+  /**
+   * Take the name/opt-in from the actual form fields. Browsers can restore
+   * field values on reload without firing input/change events, which would
+   * leave the UI showing a name + checked box while our state is empty.
+   * Returns true if the state changed.
+   */
+  readLeaderboardInputs() {
+    const nameInput = document.getElementById("leaderboardDisplayName");
+    const checkbox = document.getElementById("leaderboardOptIn");
+    const name = nameInput ? nameInput.value.trim() : this.displayName;
+    const enabled = checkbox ? checkbox.checked : this.leaderboardEnabled;
+    if (name === this.displayName && enabled === this.leaderboardEnabled) {
+      return false;
+    }
+    this.displayName = name;
+    this.leaderboardEnabled = enabled;
+    this.saveSettings();
+    return true;
   }
 
   /** Merge the user's Firebase history into local progress, keeping the higher value per day / task. */
@@ -1994,6 +2016,10 @@ export class CounterApp {
   }
 
   scheduleSyncToLeaderboard() {
+    if (this.readLeaderboardInputs()) {
+      this.claimDisplayName(); // restores first, then syncs
+      return;
+    }
     if (!this.leaderboardEnabled || !this.displayName) return;
     clearTimeout(this.leaderboardSyncTimeout);
     this.leaderboardSyncTimeout = setTimeout(
@@ -2027,6 +2053,8 @@ export class CounterApp {
   async loadLeaderboardData() {
     const listEl = document.getElementById("leaderboardList");
     if (!listEl) return;
+
+    if (this.readLeaderboardInputs()) await this.claimDisplayName();
 
     if (!this.leaderboardEnabled || !this.displayName) {
       listEl.innerHTML =
@@ -2247,6 +2275,8 @@ export class CounterApp {
     if (!input) return;
     const text = input.value.trim();
     if (!text) return;
+
+    if (this.readLeaderboardInputs()) await this.claimDisplayName();
 
     if (!this.leaderboardEnabled || !this.displayName) {
       const listEl = document.getElementById("leaderboardChatList");
