@@ -1,0 +1,49 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "teamCodes": {
+      "$code": {
+        ".read": "auth != null"
+      }
+    },
+
+    "teams": {
+      "$team": {
+        ".read": "auth != null && root.child('teamCodes').child($team).exists()",
+
+        "members": {
+          "$nick": {
+            ".write": "auth != null && root.child('teamCodes').child($team).exists() && (!data.exists() || data.val() === auth.uid)",
+            ".validate": "newData.val() === auth.uid && $nick.length <= 20"
+          }
+        },
+
+        "leaderboard": {
+          "$nick": {
+            ".write": "auth != null && root.child('teams').child($team).child('members').child($nick).val() === auth.uid",
+            "$date": {
+              ".validate": "$date.matches(/^\\d{4}-\\d{2}-\\d{2}$/) && (newData.isNumber() || newData.hasChild('_total'))",
+              "$task": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000"
+              }
+            }
+          }
+        },
+
+        "comments": {
+          ".indexOn": ["ts"],
+          "$id": {
+            ".write": "auth != null && root.child('teamCodes').child($team).exists() && ((!data.exists() && root.child('teams').child($team).child('members').child(newData.child('name').val()).val() === auth.uid) || (!newData.exists() && data.child('ts').val() < now - 2592000000))",
+            ".validate": "newData.hasChildren(['name', 'text', 'ts'])",
+            "name": { ".validate": "newData.isString()" },
+            "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 300" },
+            "ts": { ".validate": "newData.isNumber() && newData.val() < now + 300000 && newData.val() > now - 300000" },
+            "$other": { ".validate": false }
+          }
+        }
+      }
+    }
+  }
+}

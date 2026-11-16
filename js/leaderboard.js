@@ -1,38 +1,36 @@
-// ─── Firebase Leaderboard ─────────────────────────────────────────────────────
+// ─── Team Leaderboard (Firebase) ──────────────────────────────────────────────
 //
-// Setup (one-time):
-//   1. Go to https://console.firebase.google.com/ → create a project
-//   2. Build → Realtime Database → Create database → Start in test mode
-//   3. Project Settings → Your apps → Add web app → copy the config below
-//   4. In the Realtime Database "Rules" tab, paste:
-//  {
-//    "rules": {
-//      "allowList": { ".read": true, ".write": false },
-//      "leaderboard": {
-//        ".read": true,
-//        "$user": { ".write": "root.child('allowList').child($user).exists()" }
-//      },
-//      "comments": {
-//        ".read": true,
-//        "$commentId": {
-//          ".write": "!data.exists() && root.child('allowList').child(newData.child('name').val()).exists()",
-//          ".validate": "newData.hasChildren(['name', 'text', 'ts'])"
-//        }
-//      }
-//    }
-//  }
-//   5. Add allowed names under allowList/ in the Database (key = display name, value = true).
+// This module is only loaded when the user has joined a team with a team code.
+// Without a code the app never contacts Firebase.
 //
-// Then fill in your config values below and share the file with your team.
+// Data layout (see database.rules.json for who may read/write what):
+//   teamCodes/{code}                   → team label, e.g. "Team Alpha" (admin-only, set in console)
+//   teams/{code}/members/{nickname}    → anonymous uid that claimed the nickname
+//   teams/{code}/leaderboard/{nickname}/{YYYY-MM-DD} → { _total, CID, SINGLES, ICM }
+//   teams/{code}/comments/{id}         → { name, text, ts }
+//
+// Privacy: sign-in is Firebase *Anonymous* Auth (a random id per browser, no
+// email or name). Only nicknames and daily counts are stored, and anything
+// older than RETENTION_DAYS is deleted automatically.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+import {
+  getAuth,
+  signInAnonymously,
+} from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
 import {
   getDatabase,
   ref,
   set,
   get,
   push,
+  update,
+  remove,
   onValue,
+  query,
+  orderByChild,
+  endAt,
+  limitToLast,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-database.js";
 
 const FIREBASE_CONFIG = {
@@ -46,184 +44,251 @@ const FIREBASE_CONFIG = {
   appId: "1:465573472148:web:a461431a7a7b03709cd181",
 };
 
+export const RETENTION_DAYS = 30;
+const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
 let _db = null;
-// undefined = not yet fetched, null = no allowList (allow all), Set = allowed keys
-let _allowListCache;
+let _auth = null;
+let _team = null; // validated team code
 
-function isConfigured() {
-  return FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
-}
-
-function getDb() {
+function init() {
   if (!_db) {
     const app = initializeApp(FIREBASE_CONFIG);
     _db = getDatabase(app);
+    _auth = getAuth(app);
   }
-  return _db;
 }
 
-// Sanitize a display name for use as a Firebase key
-// Firebase keys cannot contain: . # $ [ ] /
-function sanitizeKey(name) {
-  return name
+async function ensureSignedIn() {
+  init();
+  await _auth.authStateReady();
+  if (!_auth.currentUser) await signInAnonymously(_auth);
+  return _auth.currentUser.uid;
+}
+
+const teamRef = (path) => ref(_db, `teams/${_team}/${path}`);
+
+/** Normalize a typed team code: lowercase, letters/digits/dashes only. */
+export function normalizeTeamCode(code) {
+  return String(code || "")
     .trim()
-    .replace(/[.#$[\]/]/g, "_")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "")
     .slice(0, 40);
 }
 
-// Fetch allowList once and cache it. Returns a Set of allowed keys, or null if no list exists.
-async function getOrFetchAllowList() {
-  if (_allowListCache !== undefined) return _allowListCache;
-  try {
-    const db = getDb();
-    const snapshot = await get(ref(db, "allowList"));
-    // Works whether allowList entries are { name: true } or { name: { since: "..." } }
-    _allowListCache = snapshot.exists()
-      ? new Set(Object.keys(snapshot.val()))
-      : null;
-  } catch {
-    _allowListCache = null; // on error, don't block anyone
-  }
-  return _allowListCache;
-}
-
 /**
- * Resolve a typed name to its canonical allowList key, ignoring case.
- * Returns the sanitized name if no allowList exists, or null if not allowed.
+ * Sanitize a nickname for use as a Firebase key.
+ * Firebase keys cannot contain: . # $ [ ] /
  */
-export async function resolveAllowedName(name) {
-  if (!isConfigured()) return null;
-  const key = sanitizeKey(name);
-  const allowList = await getOrFetchAllowList();
-  if (!allowList || allowList.has(key)) return key;
-  const lower = key.toLowerCase();
-  return [...allowList].find((k) => k.toLowerCase() === lower) ?? null;
+export function sanitizeNickname(name) {
+  return String(name || "")
+    .trim()
+    .replace(/[.#$[\]/]/g, "_")
+    .slice(0, 20);
+}
+
+/** Cutoff date key (YYYY-MM-DD); days before this are deleted. */
+function cutoffDateKey() {
+  const d = new Date(Date.now() - RETENTION_MS);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /**
- * Fetch all stored days for one user, e.g. { "2026-03-17": { _total: 42, CID: 12 }, ... }.
- * Returns null if nothing is stored or the fetch fails.
+ * Validate a team code and connect to it.
+ * @returns {Promise<string|null>} the team's label, or null if the code is unknown
+ */
+export async function joinTeam(code) {
+  const normalized = normalizeTeamCode(code);
+  if (normalized.length < 8) return null;
+  await ensureSignedIn();
+  const snapshot = await get(ref(_db, `teamCodes/${normalized}`));
+  if (!snapshot.exists()) return null;
+  _team = normalized;
+  const label = snapshot.val();
+  return typeof label === "string" && label ? label : "Team";
+}
+
+/**
+ * Claim a nickname in the current team for this browser.
+ * Matching is case-insensitive: "alice" resolves to an existing "Alice" claim
+ * if this browser owns it. If `previous` is a nickname this browser owned, its
+ * scores are moved to the new one and the old one is released.
+ * @returns {Promise<{ok: true, name: string} | {ok: false, reason: "taken"|"invalid"|"error"}>}
+ */
+export async function claimNickname(name, previous) {
+  const wanted = sanitizeNickname(name);
+  if (!_team || !wanted) return { ok: false, reason: "invalid" };
+  try {
+    const uid = await ensureSignedIn();
+    const membersSnap = await get(teamRef("members"));
+    const members = membersSnap.exists() ? membersSnap.val() : {};
+
+    const match = Object.keys(members).find(
+      (k) => k.toLowerCase() === wanted.toLowerCase(),
+    );
+    if (match && members[match] !== uid) return { ok: false, reason: "taken" };
+
+    const finalName = match || wanted;
+    if (!match) await set(teamRef(`members/${finalName}`), uid);
+
+    const prev = sanitizeNickname(previous);
+    if (prev && prev !== finalName && members[prev] === uid) {
+      await moveScores(prev, finalName);
+      await remove(teamRef(`members/${prev}`));
+    }
+    return { ok: true, name: finalName };
+  } catch (err) {
+    console.warn("[Team] nickname claim failed:", err.message);
+    return { ok: false, reason: "error" };
+  }
+}
+
+async function moveScores(from, to) {
+  const snap = await get(teamRef(`leaderboard/${from}`));
+  if (snap.exists()) {
+    const existing = await get(teamRef(`leaderboard/${to}`));
+    await set(teamRef(`leaderboard/${to}`), {
+      ...snap.val(),
+      ...(existing.exists() ? existing.val() : {}),
+    });
+  }
+  await remove(teamRef(`leaderboard/${from}`));
+}
+
+/**
+ * Fetch all stored days for one nickname and delete any older than the
+ * retention window. Returns null if nothing is stored or the fetch fails.
  */
 export async function fetchUserScores(name) {
-  if (!isConfigured()) return null;
+  if (!_team) return null;
+  const key = sanitizeNickname(name);
   try {
-    const snapshot = await get(ref(getDb(), `leaderboard/${sanitizeKey(name)}`));
-    return snapshot.exists() ? snapshot.val() : null;
+    const snapshot = await get(teamRef(`leaderboard/${key}`));
+    if (!snapshot.exists()) return null;
+    const days = snapshot.val();
+    const cutoff = cutoffDateKey();
+    const stale = Object.keys(days).filter((d) => d < cutoff);
+    if (stale.length) {
+      const updates = {};
+      stale.forEach((d) => {
+        updates[d] = null;
+        delete days[d];
+      });
+      await update(teamRef(`leaderboard/${key}`), updates);
+    }
+    return days;
   } catch (err) {
-    console.warn("[Leaderboard] user fetch failed:", err.message);
+    console.warn("[Team] user fetch failed:", err.message);
     return null;
   }
 }
 
 /**
- * Push today's score for a user.
- * Silently skips if the user's name is not in the allowList.
- * @param {string} name - Display name
- * @param {string} dateKey - YYYY-MM-DD
- * @param {number|object} payload - Either a plain total number (legacy) or an
- *   object like { _total: 145, CID: 36, SINGLES: 89, ICM: 20 }
+ * Push today's score for a nickname this browser owns.
+ * @param {number|object} payload - total number (legacy) or { _total, CID, ... }
  */
 export async function pushScore(name, dateKey, payload) {
-  if (!isConfigured()) return;
+  if (!_team) return false;
   try {
-    const db = getDb();
-    const key = sanitizeKey(name);
-    const allowList = await getOrFetchAllowList();
-    if (allowList && !allowList.has(key)) return; // not on the list — silently ignore
-    await set(ref(db, `leaderboard/${key}/${dateKey}`), payload);
-  } catch (err) {
-    console.warn("[Leaderboard] sync failed:", err.message);
-  }
-}
-
-/**
- * Fetch the full leaderboard data, filtered to allowList if one exists.
- * Returns an object like: { "Alice": { "2026-03-17": 42, ... }, ... }
- * Returns null if Firebase is not configured or fetch fails.
- */
-export async function fetchLeaderboard() {
-  if (!isConfigured()) return null;
-  try {
-    const db = getDb();
-    const [leaderSnapshot, allowList] = await Promise.all([
-      get(ref(db, "leaderboard")),
-      getOrFetchAllowList(),
-    ]);
-    if (!leaderSnapshot.exists()) return {};
-    const data = leaderSnapshot.val();
-    if (!allowList) return data; // no allowList = show everyone
-    return Object.fromEntries(
-      Object.entries(data).filter(([key]) => allowList.has(key)),
+    await set(
+      teamRef(`leaderboard/${sanitizeNickname(name)}/${dateKey}`),
+      payload,
     );
-  } catch (err) {
-    console.warn("[Leaderboard] fetch failed:", err.message);
-    return null;
-  }
-}
-
-/**
- * Fetch the allowlist of approved display name keys.
- * Returns an object like { "Alice": true, "Bob": true } or null if not set up.
- */
-export async function fetchAllowlist() {
-  if (!isConfigured()) return null;
-  try {
-    const db = getDb();
-    const snapshot = await get(ref(db, "allowList"));
-    return snapshot.exists() ? snapshot.val() : null;
-  } catch (err) {
-    console.warn("[Leaderboard] allowlist fetch failed:", err.message);
-    return null;
-  }
-}
-
-/**
- * Post a comment to the shared team feed.
- * Silently skips if the user's name is not in the allowList.
- * @param {string} name - Display name
- * @param {string} text - Comment text (trimmed and capped at 300 chars)
- * @returns {Promise<boolean>} whether the comment was posted
- */
-export async function pushComment(name, text) {
-  if (!isConfigured()) return false;
-  const trimmed = text.trim().slice(0, 300);
-  if (!trimmed) return false;
-  try {
-    const db = getDb();
-    const key = sanitizeKey(name);
-    const allowList = await getOrFetchAllowList();
-    if (allowList && !allowList.has(key)) return false;
-    await push(ref(db, "comments"), {
-      name,
-      text: trimmed,
-      ts: Date.now(),
-    });
     return true;
   } catch (err) {
-    console.warn("[Leaderboard] comment post failed:", err.message);
+    console.warn("[Team] sync failed:", err.message);
     return false;
   }
 }
 
 /**
- * Listen for live changes to the team feed. The callback receives the
- * most recent comments, newest first, on every change.
+ * Fetch the team leaderboard: { "Alice": { "2026-03-17": {...}, ... }, ... }.
+ * Returns null on failure.
+ */
+export async function fetchLeaderboard() {
+  if (!_team) return null;
+  try {
+    const snapshot = await get(teamRef("leaderboard"));
+    return snapshot.exists() ? snapshot.val() : {};
+  } catch (err) {
+    console.warn("[Team] fetch failed:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Post a comment to the team chat as a nickname this browser owns.
+ * @returns {Promise<boolean>} whether the comment was posted
+ */
+export async function pushComment(name, text) {
+  if (!_team) return false;
+  const trimmed = String(text || "").trim().slice(0, 300);
+  if (!trimmed) return false;
+  try {
+    await push(teamRef("comments"), {
+      name: sanitizeNickname(name),
+      text: trimmed,
+      ts: Date.now(),
+    });
+    return true;
+  } catch (err) {
+    console.warn("[Team] comment post failed:", err.message);
+    return false;
+  }
+}
+
+/** Delete team comments older than the retention window. */
+async function pruneOldComments() {
+  const cutoff = Date.now() - RETENTION_MS;
+  const snap = await get(
+    query(teamRef("comments"), orderByChild("ts"), endAt(cutoff)),
+  );
+  if (!snap.exists()) return;
+  const updates = {};
+  Object.keys(snap.val()).forEach((id) => (updates[id] = null));
+  await update(teamRef("comments"), updates);
+}
+
+/**
+ * Listen for live changes to the team chat. The callback receives the most
+ * recent comments, newest first.
  * @returns {Function} unsubscribe
  */
 export function subscribeComments(callback, limitCount = 50) {
-  if (!isConfigured()) return () => {};
+  if (!_team) return () => {};
+  pruneOldComments().catch((err) =>
+    console.warn("[Team] comment cleanup failed:", err.message),
+  );
   return onValue(
-    ref(getDb(), "comments"),
+    query(teamRef("comments"), orderByChild("ts"), limitToLast(limitCount)),
     (snapshot) => {
       const data = snapshot.exists() ? snapshot.val() : {};
-      callback(
-        Object.values(data)
-          .sort((a, b) => b.ts - a.ts)
-          .slice(0, limitCount),
-      );
+      callback(Object.values(data).sort((a, b) => b.ts - a.ts));
     },
-    (err) => console.warn("[Leaderboard] comments listener failed:", err.message),
+    (err) => console.warn("[Team] chat listener failed:", err.message),
   );
 }
 
-export { isConfigured };
+/**
+ * Leave the current team: deletes this nickname's scores and releases the
+ * nickname. Comments are left to expire with the retention window.
+ */
+export async function leaveTeam(name) {
+  if (!_team) return;
+  const key = sanitizeNickname(name);
+  try {
+    if (key) {
+      const owner = await get(teamRef(`members/${key}`));
+      if (owner.exists() && owner.val() === _auth.currentUser?.uid) {
+        await remove(teamRef(`leaderboard/${key}`));
+        await remove(teamRef(`members/${key}`));
+      }
+    }
+  } catch (err) {
+    console.warn("[Team] leave cleanup failed:", err.message);
+  } finally {
+    _team = null;
+  }
+}

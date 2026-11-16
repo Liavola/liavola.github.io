@@ -67,7 +67,7 @@
             <button id="toggleProgressBtnHeader" class="secondary-btn">
               📊 Progress
             </button>
-            <button id="toggleLeaderboardBtn" class="secondary-btn">
+            <button id="toggleLeaderboardBtn" class="secondary-btn" hidden>
               🏆 Team <span id="teamChatBadge" class="chat-badge" hidden></span>
             </button>
             <button id="toggleSettingsBtn" class="settings-btn secondary-btn">
@@ -104,26 +104,48 @@
           </div>
 
           <div class="settings-sub-header">
-            <h4>Team Leaderboard</h4>
+            <h4>Team</h4>
           </div>
 
-          <div class="input-group">
-            <label>Your Display Name:</label>
-            <input
-              type="text"
-              id="leaderboardDisplayName"
-              maxlength="20"
-              autocomplete="off"
-              placeholder="e.g. Alice"
-            />
+          <div id="teamJoinSection">
+            <div class="input-group">
+              <label>Team code (only if you were given one):</label>
+              <input
+                type="text"
+                id="teamCodeInput"
+                maxlength="40"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button id="joinTeamBtn" class="secondary-btn">Join team</button>
+              <span id="teamJoinStatus" class="sync-status"></span>
+            </div>
           </div>
 
-          <div class="input-group leaderboard-optin-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="leaderboardOptIn" autocomplete="off" />
-              Share my counts with the team
-            </label>
-            <span id="leaderboardSyncStatus" class="sync-status"></span>
+          <div id="teamMemberSection" hidden>
+            <div class="input-group">
+              <label>Team: <strong id="teamNameLabel"></strong></label>
+              <button id="leaveTeamBtn" class="secondary-btn">Leave team</button>
+            </div>
+
+            <div class="input-group">
+              <label>Your Nickname:</label>
+              <input
+                type="text"
+                id="leaderboardDisplayName"
+                maxlength="20"
+                autocomplete="off"
+                placeholder="A nickname, not your real name"
+              />
+            </div>
+
+            <div class="input-group leaderboard-optin-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="leaderboardOptIn" autocomplete="off" />
+                Share my counts with the team
+              </label>
+              <span id="leaderboardSyncStatus" class="sync-status"></span>
+            </div>
           </div>
 
           <div class="input-group">

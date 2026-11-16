@@ -1,14 +1,8 @@
 import { AudioFeedback } from "./audio.js";
-import {
-  pushScore,
-  fetchLeaderboard,
-  fetchAllowlist,
-  isConfigured,
-  pushComment,
-  subscribeComments,
-  resolveAllowedName,
-  fetchUserScores,
-} from "./leaderboard.js";
+// The team module (and Firebase with it) is only loaded once a team code is set,
+// so people without a code never contact Firebase.
+let _teamModule = null;
+const loadTeamModule = () => (_teamModule ??= import("./leaderboard.js"));
 
 // ─── Task Definitions ─────────────────────────────────────────────────────────
 // Each recognized task type with its name patterns and daily targets.
@@ -76,7 +70,11 @@ export class CounterApp {
     this.leaderboardEnabled = false;
     this.leaderboardView = "today";
     this.leaderboardSyncTimeout = null;
-    this._allowlistCache = null;
+    this.teamCode = "";
+    this.teamName = "";
+    this.claimedName = ""; // nickname this browser owns in the team
+    this._teamPromise = null;
+    this._unsubscribeChat = null;
 
     this.celebrationGifs = [
       "https://media.giphy.com/media/3oz8xAFtqoOUUrsh7W/giphy.gif",
@@ -107,7 +105,7 @@ export class CounterApp {
     // Auto-select first counter for keyboard use
     if (this.counters.length > 0) this.selectCounter(this.counters[0].id);
     this.renderProgressBar();
-    this.startChatListener();
+    this.initTeam();
   }
 
   setupFontDropdown() {
@@ -187,6 +185,12 @@ export class CounterApp {
         this.switchLeaderboardView(tab.dataset.lview),
       );
     });
+
+    bind("joinTeamBtn", "click", () => this.joinTeamFromInput());
+    bind("teamCodeInput", "keydown", (e) => {
+      if (e.key === "Enter") this.joinTeamFromInput();
+    });
+    bind("leaveTeamBtn", "click", () => this.leaveTeam());
 
     bind("leaderboardChatForm", "submit", (e) => this.postComment(e));
     bind("openChatBtn", "click", () => this.openChat());
@@ -1621,6 +1625,9 @@ export class CounterApp {
       audioVolume: this.audioFeedback.volume,
       displayName: this.displayName,
       leaderboardEnabled: this.leaderboardEnabled,
+      teamCode: this.teamCode,
+      teamName: this.teamName,
+      claimedName: this.claimedName,
     };
     localStorage.setItem("counterAppSettings", JSON.stringify(settings));
   }
@@ -1721,6 +1728,10 @@ export class CounterApp {
       const checkbox = document.getElementById("leaderboardOptIn");
       if (checkbox) checkbox.checked = settings.leaderboardEnabled;
     }
+
+    this.teamCode = settings.teamCode || "";
+    this.teamName = settings.teamName || "";
+    this.claimedName = settings.claimedName || "";
   }
 
   saveProgress() {
@@ -1767,6 +1778,147 @@ export class CounterApp {
       anyDayCompleted ? "" : "none";
   }
 
+  // ─── Team ─────────────────────────────────────────────────────────────────
+  // Without a team code the app is a plain local counter: no team UI and no
+  // network calls. A code (typed in Settings or opened as a ?team=CODE link)
+  // unlocks the leaderboard and chat for that team only.
+
+  initTeam() {
+    const params = new URLSearchParams(location.search);
+    const linkCode = params.get("team");
+    if (linkCode) {
+      // Remove the code from the address bar so it doesn't linger in history/bookmarks
+      params.delete("team");
+      const qs = params.toString();
+      history.replaceState(
+        null,
+        "",
+        location.pathname + (qs ? `?${qs}` : "") + location.hash,
+      );
+    }
+
+    this.applyTeamUi();
+    if (linkCode) {
+      this.joinTeam(linkCode);
+    } else if (this.teamCode) {
+      this.getTeam().then((team) => team && this.claimDisplayName());
+    }
+  }
+
+  /** Connect to the saved team once. Resolves to the team module, or null. */
+  getTeam() {
+    if (!this.teamCode) return Promise.resolve(null);
+    if (!this._teamPromise) {
+      this._teamPromise = this.connectTeam().catch((err) => {
+        console.warn("[Team] connect failed:", err.message);
+        this._teamPromise = null; // retry next time (e.g. was offline)
+        return null;
+      });
+    }
+    return this._teamPromise;
+  }
+
+  async connectTeam() {
+    const team = await loadTeamModule();
+    const label = await team.joinTeam(this.teamCode);
+    if (!label) {
+      // The admin removed this team code
+      this.clearTeam();
+      this.setTeamStatus("Your team code is no longer valid.");
+      return null;
+    }
+    if (label !== this.teamName) {
+      this.teamName = label;
+      this.saveSettings();
+      this.applyTeamUi();
+    }
+    this.startChatListener(team);
+    return team;
+  }
+
+  joinTeamFromInput() {
+    const input = document.getElementById("teamCodeInput");
+    if (input && input.value.trim()) this.joinTeam(input.value);
+  }
+
+  async joinTeam(code) {
+    const btn = document.getElementById("joinTeamBtn");
+    if (btn) btn.disabled = true;
+    this.setTeamStatus("Checking…");
+    try {
+      const team = await loadTeamModule();
+      const label = await team.joinTeam(code);
+      if (!label) {
+        this.setTeamStatus("Unknown team code.");
+        return;
+      }
+      this._unsubscribeChat?.();
+      this.teamCode = team.normalizeTeamCode(code);
+      this.teamName = label;
+      this.claimedName = "";
+      this._teamPromise = Promise.resolve(team);
+      this.saveSettings();
+      this.setTeamStatus("");
+      const input = document.getElementById("teamCodeInput");
+      if (input) input.value = "";
+      this.applyTeamUi();
+      this.startChatListener(team);
+      this.claimDisplayName();
+    } catch (err) {
+      console.warn("[Team] join failed:", err.message);
+      this.setTeamStatus("Couldn't reach the server. Try again.");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async leaveTeam() {
+    if (
+      !confirm(
+        "Leave the team? Your shared counts are removed from the team. Your counters on this device stay.",
+      )
+    ) {
+      return;
+    }
+    const team = await this.getTeam();
+    if (team) await team.leaveTeam(this.claimedName);
+    this.clearTeam();
+  }
+
+  /** Forget the team locally and go back to the plain counter. */
+  clearTeam() {
+    this._unsubscribeChat?.();
+    this._unsubscribeChat = null;
+    this._comments = [];
+    this._leaderboardCache = null;
+    this.setChatBadge(0);
+    this.teamCode = "";
+    this.teamName = "";
+    this.claimedName = "";
+    this._teamPromise = null;
+    this.closeLeaderboard();
+    this.saveSettings();
+    this.applyTeamUi();
+  }
+
+  applyTeamUi() {
+    const inTeam = Boolean(this.teamCode);
+    document.getElementById("toggleLeaderboardBtn").hidden = !inTeam;
+    document.getElementById("teamJoinSection").hidden = inTeam;
+    document.getElementById("teamMemberSection").hidden = !inTeam;
+    document.getElementById("teamNameLabel").textContent = this.teamName;
+  }
+
+  setTeamStatus(text) {
+    const el = document.getElementById("teamJoinStatus");
+    if (el) el.textContent = text;
+  }
+
+  setSyncStatus(text) {
+    const el = document.getElementById("leaderboardSyncStatus");
+    if (el) el.textContent = text;
+  }
+
   // ─── Leaderboard ──────────────────────────────────────────────────────────
 
   updateDisplayName(e) {
@@ -1782,31 +1934,46 @@ export class CounterApp {
   }
 
   /**
-   * Called when the user opts in or commits their name. Matches the name to
-   * the allowList (case-insensitive) and pulls their existing Firebase data
-   * back into local storage *before* syncing, so a fresh browser (cleared
-   * cookies, new device) doesn't overwrite their scores with zeros.
+   * Called when the user opts in or commits their nickname. Claims the
+   * nickname in the team for this browser, then pulls their existing team
+   * data back into local storage *before* syncing, so a fresh browser doesn't
+   * overwrite their scores with zeros.
    */
   async claimDisplayName() {
     this.readLeaderboardInputs();
-    if (!this.leaderboardEnabled || !this.displayName || !isConfigured()) {
+    if (!this.leaderboardEnabled || !this.displayName || !this.teamCode) {
       return;
     }
     this._restoring = true;
+    let claimed = false;
     try {
-      const canonical = await resolveAllowedName(this.displayName);
-      if (!canonical) return; // not on the allowList — nothing to restore or sync
-      if (canonical !== this.displayName) {
-        this.displayName = canonical;
-        const nameInput = document.getElementById("leaderboardDisplayName");
-        if (nameInput) nameInput.value = canonical;
-        this.saveSettings();
+      const team = await this.getTeam();
+      if (!team) return;
+      const result = await team.claimNickname(
+        this.displayName,
+        this.claimedName,
+      );
+      if (!result.ok) {
+        this.setSyncStatus(
+          result.reason === "taken"
+            ? "Nickname already taken in this team"
+            : "Couldn't save nickname",
+        );
+        return;
       }
-      await this.restoreFromLeaderboard();
+      this.claimedName = result.name;
+      if (result.name !== this.displayName) {
+        this.displayName = result.name;
+        const nameInput = document.getElementById("leaderboardDisplayName");
+        if (nameInput) nameInput.value = result.name;
+      }
+      this.saveSettings();
+      await this.restoreFromLeaderboard(team);
+      claimed = true;
     } finally {
       this._restoring = false;
     }
-    await this.syncToLeaderboard();
+    if (claimed) await this.syncToLeaderboard();
   }
 
   /**
@@ -1830,8 +1997,8 @@ export class CounterApp {
   }
 
   /** Merge the user's Firebase history into local progress, keeping the higher value per day / task. */
-  async restoreFromLeaderboard() {
-    const remote = await fetchUserScores(this.displayName);
+  async restoreFromLeaderboard(team) {
+    const remote = await team.fetchUserScores(this.displayName);
     if (!remote) return;
 
     const today = this.getCurrentDayKey();
@@ -1963,8 +2130,9 @@ export class CounterApp {
     document.getElementById("chatPanel").classList.remove("open");
   }
 
-  startChatListener() {
-    subscribeComments((comments) => {
+  startChatListener(team) {
+    this._unsubscribeChat?.();
+    this._unsubscribeChat = team.subscribeComments((comments) => {
       this._comments = comments;
       this.renderComments(comments);
       if (document.getElementById("chatPanel").classList.contains("open")) {
@@ -2020,7 +2188,7 @@ export class CounterApp {
       this.claimDisplayName(); // restores first, then syncs
       return;
     }
-    if (!this.leaderboardEnabled || !this.displayName) return;
+    if (!this.leaderboardEnabled || !this.displayName || !this.teamCode) return;
     clearTimeout(this.leaderboardSyncTimeout);
     this.leaderboardSyncTimeout = setTimeout(
       () => this.syncToLeaderboard(),
@@ -2030,6 +2198,9 @@ export class CounterApp {
 
   async syncToLeaderboard() {
     if (!this.leaderboardEnabled || !this.displayName || this._restoring) return;
+    if (this.displayName !== this.claimedName) return; // nickname not (yet) ours
+    const team = await this.getTeam();
+    if (!team) return;
     const today = this.getCurrentDayKey();
     const total = this.getDayTotal(today);
     // Build task-type breakdown from current counters for richer leaderboard display
@@ -2038,16 +2209,13 @@ export class CounterApp {
       Object.keys(taskBreakdown).length > 0
         ? { _total: total, ...taskBreakdown }
         : total;
-    await pushScore(this.displayName, today, payload);
+    const ok = await team.pushScore(this.displayName, today, payload);
 
-    const status = document.getElementById("leaderboardSyncStatus");
-    if (status) {
-      const time = new Date().toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      status.textContent = `Synced ${time}`;
-    }
+    const time = new Date().toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    this.setSyncStatus(ok ? `Synced ${time}` : "Sync failed");
   }
 
   async loadLeaderboardData() {
@@ -2058,33 +2226,31 @@ export class CounterApp {
 
     if (!this.leaderboardEnabled || !this.displayName) {
       listEl.innerHTML =
-        '<p class="leaderboard-empty">You need to enter your name and opt in to share your counts before you can view the leaderboard.</p>';
+        '<p class="leaderboard-empty">Enter a nickname and opt in (in Settings) to see the team leaderboard.</p>';
       return;
     }
 
-    if (!isConfigured()) {
+    if (this.displayName !== this.claimedName) await this.claimDisplayName();
+    if (this.displayName !== this.claimedName) {
       listEl.innerHTML =
-        '<p class="leaderboard-empty">Firebase not configured yet.<br>Fill in the config in <code>js/leaderboard.js</code>.</p>';
+        '<p class="leaderboard-empty">Your nickname is already taken in this team, or the server could not be reached. Pick another nickname in Settings.</p>';
+      return;
+    }
+
+    const team = await this.getTeam();
+    if (!team) {
+      listEl.innerHTML =
+        '<p class="leaderboard-empty">Could not connect to the team.</p>';
       return;
     }
 
     listEl.innerHTML = '<p class="leaderboard-empty">Loading…</p>';
 
-    const [data, allowlist] = await Promise.all([
-      fetchLeaderboard(),
-      fetchAllowlist(),
-    ]);
-    this._allowlistCache = allowlist;
-
-    if (allowlist && !allowlist[this.displayName]) {
-      listEl.innerHTML =
-        '<p class="leaderboard-empty">Your name is not on the approved list. Ask the admin to add you.</p>';
-      return;
-    }
+    const data = await team.fetchLeaderboard();
 
     if (data === null) {
       listEl.innerHTML =
-        '<p class="leaderboard-empty">Could not load data. Check your Firebase config.</p>';
+        '<p class="leaderboard-empty">Could not load data. Try again later.</p>';
       return;
     }
 
@@ -2117,16 +2283,8 @@ export class CounterApp {
 
     const parseDayVal = (val) => this.parseRemoteDay(val);
 
-    // Apply allowlist filter if one is configured
-    const allowlist = this._allowlistCache;
-    const visibleData = allowlist
-      ? Object.fromEntries(
-          Object.entries(data).filter(([name]) => allowlist[name]),
-        )
-      : data;
-
     // Build entries
-    const entries = Object.entries(visibleData).map(([name, days]) => {
+    const entries = Object.entries(data).map(([name, days]) => {
       const todayParsed = parseDayVal(days[today]);
       const todayTotal = todayParsed.total;
       const todayTasks = todayParsed.tasks;
@@ -2198,7 +2356,7 @@ export class CounterApp {
             <div class="lb-rank">${medal || i + 1}</div>
             <div class="lb-info">
               <div class="lb-name">
-                ${entry.name}${isMe ? " (you)" : ""}
+                ${this.escapeHtml(entry.name)}${isMe ? " (you)" : ""}
                 ${taskProgress ? `<span class="lb-completion-pct">${completionPct}%</span>` : ""}
               </div>
               ${chipsHtml}
@@ -2229,7 +2387,7 @@ export class CounterApp {
             <div class="lb-rank">${medal || i + 1}</div>
             <div class="lb-info">
               <div class="lb-name-row">
-                <span class="lb-name">${entry.name}${isMe ? " (you)" : ""}</span>
+                <span class="lb-name">${this.escapeHtml(entry.name)}${isMe ? " (you)" : ""}</span>
                 <span class="lb-score-inline">${entry.weekScore}</span>
               </div>
               <div class="lb-week-grid">${dayGrid}</div>
@@ -2278,16 +2436,21 @@ export class CounterApp {
 
     if (this.readLeaderboardInputs()) await this.claimDisplayName();
 
-    if (!this.leaderboardEnabled || !this.displayName) {
+    if (
+      !this.leaderboardEnabled ||
+      !this.displayName ||
+      this.displayName !== this.claimedName
+    ) {
       const listEl = document.getElementById("leaderboardChatList");
       if (listEl) {
         listEl.innerHTML =
-          '<p class="leaderboard-empty">Enter your name and opt in (in Settings) before posting.</p>';
+          '<p class="leaderboard-empty">Enter a nickname and opt in (in Settings) before posting.</p>';
       }
       return;
     }
 
-    const ok = await pushComment(this.displayName, text);
+    const team = await this.getTeam();
+    const ok = team ? await team.pushComment(this.displayName, text) : false;
     if (ok) input.value = "";
   }
 
